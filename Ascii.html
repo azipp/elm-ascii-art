@@ -5572,7 +5572,7 @@ var $avh4$elm_color$Color$toRgba = function (_v0) {
 	var a = _v0.d;
 	return {alpha: a, blue: b, green: g, red: r};
 };
-var $author$project$Ascii$colorToFloat = function (col) {
+var $author$project$Ascii$luminosity = function (col) {
 	var _v0 = $avh4$elm_color$Color$toRgba(col);
 	var red = _v0.red;
 	var green = _v0.green;
@@ -5580,13 +5580,13 @@ var $author$project$Ascii$colorToFloat = function (col) {
 	var alpha = _v0.alpha;
 	return ((0.2126 * red) + (0.7152 * green)) + (0.0722 * blue);
 };
-var $author$project$Ascii$colorsToFloats = function (cols) {
+var $author$project$Ascii$colorsToLuminosity = function (colors) {
 	return A2(
 		$elm$core$List$map,
 		function (xs) {
-			return A2($elm$core$List$map, $author$project$Ascii$colorToFloat, xs);
+			return A2($elm$core$List$map, $author$project$Ascii$luminosity, xs);
 		},
-		cols);
+		colors);
 };
 var $elm$core$List$head = function (list) {
 	if (list.b) {
@@ -9973,7 +9973,7 @@ var $author$project$Ascii$update = F2(
 			var _v1 = A2(
 				$elm$core$Debug$log,
 				'raw',
-				$author$project$Ascii$colorsToFloats(
+				$author$project$Ascii$colorsToLuminosity(
 					$author$project$Ascii$imageToColors(
 						$elm$core$List$head(bytes))));
 			return _Utils_Tuple2(

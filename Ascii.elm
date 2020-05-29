@@ -1,5 +1,6 @@
 module Ascii exposing (..)
 
+import Array exposing (..)
 import Browser
 import Browser.Events
 import Bytes exposing (Bytes)
@@ -13,6 +14,41 @@ import Image exposing (..)
 import Image.Color
 import Json.Decode as Decode
 import Task
+
+
+
+------ CONSTANTS ------
+
+
+blocks : Array Char
+blocks =
+    Array.fromList [ ' ', '░', '▒', '▓', '█' ]
+
+
+ascii1 : Array Char
+ascii1 =
+    Array.fromList
+        (String.toList
+            ".'`,^:\";~-_+<>i!lI?/\\|()1{}[]rcvunxzjftLCJUYXZO0Qoahkbdpqwm*WMB8&%$#@"
+        )
+
+
+ascii2 : Array Char
+ascii2 =
+    Array.fromList
+        (List.reverse
+            (String.toList
+                "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'. "
+            )
+        )
+
+
+ascii3 : Array Char
+ascii3 =
+    Array.fromList
+        (String.toList
+            " .:-=+*#%@"
+        )
 
 
 
@@ -79,7 +115,7 @@ update msg model =
         GotBytes bytes ->
             let
                 _ =
-                    Debug.log "raw" (colorsToFloats (imageToColors (List.head bytes)))
+                    Debug.log "raw" (colorsToLuminosity (imageToColors (List.head bytes)))
             in
             ( { model | fileBytes = bytes }
             , Cmd.none
@@ -158,8 +194,8 @@ imageToColors file =
                     col
 
 
-colorToFloat : Color -> Float
-colorToFloat col =
+luminosity : Color -> Float
+luminosity col =
     let
         { red, green, blue, alpha } =
             Color.toRgba col
@@ -168,6 +204,26 @@ colorToFloat col =
     0.2126 * red + 0.7152 * green + 0.0722 * blue
 
 
-colorsToFloats : List (List Color) -> List (List Float)
-colorsToFloats cols =
-    List.map (\xs -> List.map colorToFloat xs) cols
+colorsToLuminosity : List (List Color) -> List (List Float)
+colorsToLuminosity colors =
+    List.map (\xs -> List.map luminosity xs) colors
+
+
+
+-- use indexed map to skip rows and columns by adding []
+-- get skip scale from img aspect ratio and height, width of window
+-- extra: css to monoscale and fix font + size
+
+
+luminosityToAscii : Float -> Array Char -> Char
+luminosityToAscii lum ascii =
+    let
+        ch =
+            Array.get (Basics.round (lum * Basics.toFloat (Array.length ascii - 1))) ascii
+    in
+    case ch of
+        Nothing ->
+            'ø'
+
+        Just c ->
+            c
