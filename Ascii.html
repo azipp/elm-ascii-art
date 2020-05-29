@@ -5565,6 +5565,29 @@ var $author$project$Ascii$subscriptions = function (model) {
 var $author$project$Ascii$GotBytes = function (a) {
 	return {$: 'GotBytes', a: a};
 };
+var $avh4$elm_color$Color$toRgba = function (_v0) {
+	var r = _v0.a;
+	var g = _v0.b;
+	var b = _v0.c;
+	var a = _v0.d;
+	return {alpha: a, blue: b, green: g, red: r};
+};
+var $author$project$Ascii$colorToFloat = function (col) {
+	var _v0 = $avh4$elm_color$Color$toRgba(col);
+	var red = _v0.red;
+	var green = _v0.green;
+	var blue = _v0.blue;
+	var alpha = _v0.alpha;
+	return ((0.2126 * red) + (0.7152 * green)) + (0.0722 * blue);
+};
+var $author$project$Ascii$colorsToFloats = function (cols) {
+	return A2(
+		$elm$core$List$map,
+		function (xs) {
+			return A2($elm$core$List$map, $author$project$Ascii$colorToFloat, xs);
+		},
+		cols);
+};
 var $elm$core$List$head = function (list) {
 	if (list.b) {
 		var x = list.a;
@@ -9949,9 +9972,10 @@ var $author$project$Ascii$update = F2(
 			var bytes = msg.a;
 			var _v1 = A2(
 				$elm$core$Debug$log,
-				'val',
-				$author$project$Ascii$imageToColors(
-					$elm$core$List$head(bytes)));
+				'raw',
+				$author$project$Ascii$colorsToFloats(
+					$author$project$Ascii$imageToColors(
+						$elm$core$List$head(bytes))));
 			return _Utils_Tuple2(
 				_Utils_update(
 					model,

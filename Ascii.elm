@@ -79,7 +79,7 @@ update msg model =
         GotBytes bytes ->
             let
                 _ =
-                    Debug.log "val" (imageToColors (List.head bytes))
+                    Debug.log "raw" (colorsToFloats (imageToColors (List.head bytes)))
             in
             ( { model | fileBytes = bytes }
             , Cmd.none
@@ -161,7 +161,13 @@ imageToColors file =
 colorToFloat : Color -> Float
 colorToFloat col =
     let
-        { red, green, blue } =
+        { red, green, blue, alpha } =
             Color.toRgba col
     in
-    0.2126 * red + 0.7152 * green + 0.722 * blue
+    -- standardized on interval [0, 1]
+    0.2126 * red + 0.7152 * green + 0.0722 * blue
+
+
+colorsToFloats : List (List Color) -> List (List Float)
+colorsToFloats cols =
+    List.map (\xs -> List.map colorToFloat xs) cols
