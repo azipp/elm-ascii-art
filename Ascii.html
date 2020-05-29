@@ -4371,6 +4371,221 @@ function _Browser_load(url)
 }
 
 
+// BYTES
+
+function _Bytes_width(bytes)
+{
+	return bytes.byteLength;
+}
+
+var _Bytes_getHostEndianness = F2(function(le, be)
+{
+	return _Scheduler_binding(function(callback)
+	{
+		callback(_Scheduler_succeed(new Uint8Array(new Uint32Array([1]))[0] === 1 ? le : be));
+	});
+});
+
+
+// ENCODERS
+
+function _Bytes_encode(encoder)
+{
+	var mutableBytes = new DataView(new ArrayBuffer($elm$bytes$Bytes$Encode$getWidth(encoder)));
+	$elm$bytes$Bytes$Encode$write(encoder)(mutableBytes)(0);
+	return mutableBytes;
+}
+
+
+// SIGNED INTEGERS
+
+var _Bytes_write_i8  = F3(function(mb, i, n) { mb.setInt8(i, n); return i + 1; });
+var _Bytes_write_i16 = F4(function(mb, i, n, isLE) { mb.setInt16(i, n, isLE); return i + 2; });
+var _Bytes_write_i32 = F4(function(mb, i, n, isLE) { mb.setInt32(i, n, isLE); return i + 4; });
+
+
+// UNSIGNED INTEGERS
+
+var _Bytes_write_u8  = F3(function(mb, i, n) { mb.setUint8(i, n); return i + 1 ;});
+var _Bytes_write_u16 = F4(function(mb, i, n, isLE) { mb.setUint16(i, n, isLE); return i + 2; });
+var _Bytes_write_u32 = F4(function(mb, i, n, isLE) { mb.setUint32(i, n, isLE); return i + 4; });
+
+
+// FLOATS
+
+var _Bytes_write_f32 = F4(function(mb, i, n, isLE) { mb.setFloat32(i, n, isLE); return i + 4; });
+var _Bytes_write_f64 = F4(function(mb, i, n, isLE) { mb.setFloat64(i, n, isLE); return i + 8; });
+
+
+// BYTES
+
+var _Bytes_write_bytes = F3(function(mb, offset, bytes)
+{
+	for (var i = 0, len = bytes.byteLength, limit = len - 4; i <= limit; i += 4)
+	{
+		mb.setUint32(offset + i, bytes.getUint32(i));
+	}
+	for (; i < len; i++)
+	{
+		mb.setUint8(offset + i, bytes.getUint8(i));
+	}
+	return offset + len;
+});
+
+
+// STRINGS
+
+function _Bytes_getStringWidth(string)
+{
+	for (var width = 0, i = 0; i < string.length; i++)
+	{
+		var code = string.charCodeAt(i);
+		width +=
+			(code < 0x80) ? 1 :
+			(code < 0x800) ? 2 :
+			(code < 0xD800 || 0xDBFF < code) ? 3 : (i++, 4);
+	}
+	return width;
+}
+
+var _Bytes_write_string = F3(function(mb, offset, string)
+{
+	for (var i = 0; i < string.length; i++)
+	{
+		var code = string.charCodeAt(i);
+		offset +=
+			(code < 0x80)
+				? (mb.setUint8(offset, code)
+				, 1
+				)
+				:
+			(code < 0x800)
+				? (mb.setUint16(offset, 0xC080 /* 0b1100000010000000 */
+					| (code >>> 6 & 0x1F /* 0b00011111 */) << 8
+					| code & 0x3F /* 0b00111111 */)
+				, 2
+				)
+				:
+			(code < 0xD800 || 0xDBFF < code)
+				? (mb.setUint16(offset, 0xE080 /* 0b1110000010000000 */
+					| (code >>> 12 & 0xF /* 0b00001111 */) << 8
+					| code >>> 6 & 0x3F /* 0b00111111 */)
+				, mb.setUint8(offset + 2, 0x80 /* 0b10000000 */
+					| code & 0x3F /* 0b00111111 */)
+				, 3
+				)
+				:
+			(code = (code - 0xD800) * 0x400 + string.charCodeAt(++i) - 0xDC00 + 0x10000
+			, mb.setUint32(offset, 0xF0808080 /* 0b11110000100000001000000010000000 */
+				| (code >>> 18 & 0x7 /* 0b00000111 */) << 24
+				| (code >>> 12 & 0x3F /* 0b00111111 */) << 16
+				| (code >>> 6 & 0x3F /* 0b00111111 */) << 8
+				| code & 0x3F /* 0b00111111 */)
+			, 4
+			);
+	}
+	return offset;
+});
+
+
+// DECODER
+
+var _Bytes_decode = F2(function(decoder, bytes)
+{
+	try {
+		return $elm$core$Maybe$Just(A2(decoder, bytes, 0).b);
+	} catch(e) {
+		return $elm$core$Maybe$Nothing;
+	}
+});
+
+var _Bytes_read_i8  = F2(function(      bytes, offset) { return _Utils_Tuple2(offset + 1, bytes.getInt8(offset)); });
+var _Bytes_read_i16 = F3(function(isLE, bytes, offset) { return _Utils_Tuple2(offset + 2, bytes.getInt16(offset, isLE)); });
+var _Bytes_read_i32 = F3(function(isLE, bytes, offset) { return _Utils_Tuple2(offset + 4, bytes.getInt32(offset, isLE)); });
+var _Bytes_read_u8  = F2(function(      bytes, offset) { return _Utils_Tuple2(offset + 1, bytes.getUint8(offset)); });
+var _Bytes_read_u16 = F3(function(isLE, bytes, offset) { return _Utils_Tuple2(offset + 2, bytes.getUint16(offset, isLE)); });
+var _Bytes_read_u32 = F3(function(isLE, bytes, offset) { return _Utils_Tuple2(offset + 4, bytes.getUint32(offset, isLE)); });
+var _Bytes_read_f32 = F3(function(isLE, bytes, offset) { return _Utils_Tuple2(offset + 4, bytes.getFloat32(offset, isLE)); });
+var _Bytes_read_f64 = F3(function(isLE, bytes, offset) { return _Utils_Tuple2(offset + 8, bytes.getFloat64(offset, isLE)); });
+
+var _Bytes_read_bytes = F3(function(len, bytes, offset)
+{
+	return _Utils_Tuple2(offset + len, new DataView(bytes.buffer, bytes.byteOffset + offset, len));
+});
+
+var _Bytes_read_string = F3(function(len, bytes, offset)
+{
+	var string = '';
+	var end = offset + len;
+	for (; offset < end;)
+	{
+		var byte = bytes.getUint8(offset++);
+		string +=
+			(byte < 128)
+				? String.fromCharCode(byte)
+				:
+			((byte & 0xE0 /* 0b11100000 */) === 0xC0 /* 0b11000000 */)
+				? String.fromCharCode((byte & 0x1F /* 0b00011111 */) << 6 | bytes.getUint8(offset++) & 0x3F /* 0b00111111 */)
+				:
+			((byte & 0xF0 /* 0b11110000 */) === 0xE0 /* 0b11100000 */)
+				? String.fromCharCode(
+					(byte & 0xF /* 0b00001111 */) << 12
+					| (bytes.getUint8(offset++) & 0x3F /* 0b00111111 */) << 6
+					| bytes.getUint8(offset++) & 0x3F /* 0b00111111 */
+				)
+				:
+				(byte =
+					((byte & 0x7 /* 0b00000111 */) << 18
+						| (bytes.getUint8(offset++) & 0x3F /* 0b00111111 */) << 12
+						| (bytes.getUint8(offset++) & 0x3F /* 0b00111111 */) << 6
+						| bytes.getUint8(offset++) & 0x3F /* 0b00111111 */
+					) - 0x10000
+				, String.fromCharCode(Math.floor(byte / 0x400) + 0xD800, byte % 0x400 + 0xDC00)
+				);
+	}
+	return _Utils_Tuple2(offset, string);
+});
+
+var _Bytes_decodeFailure = F2(function() { throw 0; });
+
+
+
+var _Bitwise_and = F2(function(a, b)
+{
+	return a & b;
+});
+
+var _Bitwise_or = F2(function(a, b)
+{
+	return a | b;
+});
+
+var _Bitwise_xor = F2(function(a, b)
+{
+	return a ^ b;
+});
+
+function _Bitwise_complement(a)
+{
+	return ~a;
+};
+
+var _Bitwise_shiftLeftBy = F2(function(offset, a)
+{
+	return a << offset;
+});
+
+var _Bitwise_shiftRightBy = F2(function(offset, a)
+{
+	return a >> offset;
+});
+
+var _Bitwise_shiftRightZfBy = F2(function(offset, a)
+{
+	return a >>> offset;
+});
+
+
 
 // DECODER
 
@@ -5350,6 +5565,4225 @@ var $author$project$Ascii$subscriptions = function (model) {
 var $author$project$Ascii$GotBytes = function (a) {
 	return {$: 'GotBytes', a: a};
 };
+var $elm$core$List$head = function (list) {
+	if (list.b) {
+		var x = list.a;
+		var xs = list.b;
+		return $elm$core$Maybe$Just(x);
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
+};
+var $elm$bytes$Bytes$Encode$getWidth = function (builder) {
+	switch (builder.$) {
+		case 'I8':
+			return 1;
+		case 'I16':
+			return 2;
+		case 'I32':
+			return 4;
+		case 'U8':
+			return 1;
+		case 'U16':
+			return 2;
+		case 'U32':
+			return 4;
+		case 'F32':
+			return 4;
+		case 'F64':
+			return 8;
+		case 'Seq':
+			var w = builder.a;
+			return w;
+		case 'Utf8':
+			var w = builder.a;
+			return w;
+		default:
+			var bs = builder.a;
+			return _Bytes_width(bs);
+	}
+};
+var $elm$bytes$Bytes$LE = {$: 'LE'};
+var $elm$bytes$Bytes$Encode$write = F3(
+	function (builder, mb, offset) {
+		switch (builder.$) {
+			case 'I8':
+				var n = builder.a;
+				return A3(_Bytes_write_i8, mb, offset, n);
+			case 'I16':
+				var e = builder.a;
+				var n = builder.b;
+				return A4(
+					_Bytes_write_i16,
+					mb,
+					offset,
+					n,
+					_Utils_eq(e, $elm$bytes$Bytes$LE));
+			case 'I32':
+				var e = builder.a;
+				var n = builder.b;
+				return A4(
+					_Bytes_write_i32,
+					mb,
+					offset,
+					n,
+					_Utils_eq(e, $elm$bytes$Bytes$LE));
+			case 'U8':
+				var n = builder.a;
+				return A3(_Bytes_write_u8, mb, offset, n);
+			case 'U16':
+				var e = builder.a;
+				var n = builder.b;
+				return A4(
+					_Bytes_write_u16,
+					mb,
+					offset,
+					n,
+					_Utils_eq(e, $elm$bytes$Bytes$LE));
+			case 'U32':
+				var e = builder.a;
+				var n = builder.b;
+				return A4(
+					_Bytes_write_u32,
+					mb,
+					offset,
+					n,
+					_Utils_eq(e, $elm$bytes$Bytes$LE));
+			case 'F32':
+				var e = builder.a;
+				var n = builder.b;
+				return A4(
+					_Bytes_write_f32,
+					mb,
+					offset,
+					n,
+					_Utils_eq(e, $elm$bytes$Bytes$LE));
+			case 'F64':
+				var e = builder.a;
+				var n = builder.b;
+				return A4(
+					_Bytes_write_f64,
+					mb,
+					offset,
+					n,
+					_Utils_eq(e, $elm$bytes$Bytes$LE));
+			case 'Seq':
+				var bs = builder.b;
+				return A3($elm$bytes$Bytes$Encode$writeSequence, bs, mb, offset);
+			case 'Utf8':
+				var s = builder.b;
+				return A3(_Bytes_write_string, mb, offset, s);
+			default:
+				var bs = builder.a;
+				return A3(_Bytes_write_bytes, mb, offset, bs);
+		}
+	});
+var $elm$bytes$Bytes$Encode$writeSequence = F3(
+	function (builders, mb, offset) {
+		writeSequence:
+		while (true) {
+			if (!builders.b) {
+				return offset;
+			} else {
+				var b = builders.a;
+				var bs = builders.b;
+				var $temp$builders = bs,
+					$temp$mb = mb,
+					$temp$offset = A3($elm$bytes$Bytes$Encode$write, b, mb, offset);
+				builders = $temp$builders;
+				mb = $temp$mb;
+				offset = $temp$offset;
+				continue writeSequence;
+			}
+		}
+	});
+var $elm$bytes$Bytes$Decode$decode = F2(
+	function (_v0, bs) {
+		var decoder = _v0.a;
+		return A2(_Bytes_decode, decoder, bs);
+	});
+var $justgook$elm_image$Image$Info$Bmp = function (a) {
+	return {$: 'Bmp', a: a};
+};
+var $justgook$elm_image$Image$Internal$ImageData$Bytes = F3(
+	function (a, b, c) {
+		return {$: 'Bytes', a: a, b: b, c: c};
+	});
+var $elm$bytes$Bytes$Decode$Decoder = function (a) {
+	return {$: 'Decoder', a: a};
+};
+var $elm$bytes$Bytes$Decode$andThen = F2(
+	function (callback, _v0) {
+		var decodeA = _v0.a;
+		return $elm$bytes$Bytes$Decode$Decoder(
+			F2(
+				function (bites, offset) {
+					var _v1 = A2(decodeA, bites, offset);
+					var newOffset = _v1.a;
+					var a = _v1.b;
+					var _v2 = callback(a);
+					var decodeB = _v2.a;
+					return A2(decodeB, bites, newOffset);
+				}));
+	});
+var $elm$bytes$Bytes$Decode$map2 = F3(
+	function (func, _v0, _v1) {
+		var decodeA = _v0.a;
+		var decodeB = _v1.a;
+		return $elm$bytes$Bytes$Decode$Decoder(
+			F2(
+				function (bites, offset) {
+					var _v2 = A2(decodeA, bites, offset);
+					var aOffset = _v2.a;
+					var a = _v2.b;
+					var _v3 = A2(decodeB, bites, aOffset);
+					var bOffset = _v3.a;
+					var b = _v3.b;
+					return _Utils_Tuple2(
+						bOffset,
+						A2(func, a, b));
+				}));
+	});
+var $justgook$elm_image$Image$Internal$Decode$andMap = F2(
+	function (argument, _function) {
+		return A3($elm$bytes$Bytes$Decode$map2, $elm$core$Basics$apL, _function, argument);
+	});
+var $justgook$elm_image$Image$Info$BmpBitsPerPixel16 = {$: 'BmpBitsPerPixel16'};
+var $justgook$elm_image$Image$Info$BmpBitsPerPixel24 = {$: 'BmpBitsPerPixel24'};
+var $justgook$elm_image$Image$Info$BmpBitsPerPixel32 = {$: 'BmpBitsPerPixel32'};
+var $justgook$elm_image$Image$Info$BmpBitsPerPixel8 = {$: 'BmpBitsPerPixel8'};
+var $elm$bytes$Bytes$Decode$fail = $elm$bytes$Bytes$Decode$Decoder(_Bytes_decodeFailure);
+var $elm$bytes$Bytes$Decode$succeed = function (a) {
+	return $elm$bytes$Bytes$Decode$Decoder(
+		F2(
+			function (_v0, offset) {
+				return _Utils_Tuple2(offset, a);
+			}));
+};
+var $elm$bytes$Bytes$Decode$unsignedInt16 = function (endianness) {
+	return $elm$bytes$Bytes$Decode$Decoder(
+		_Bytes_read_u16(
+			_Utils_eq(endianness, $elm$bytes$Bytes$LE)));
+};
+var $justgook$elm_image$Image$Internal$BMP$bitsPerPixelDecode = A2(
+	$elm$bytes$Bytes$Decode$andThen,
+	function (a) {
+		switch (a) {
+			case 8:
+				return $elm$bytes$Bytes$Decode$succeed($justgook$elm_image$Image$Info$BmpBitsPerPixel8);
+			case 16:
+				return $elm$bytes$Bytes$Decode$succeed($justgook$elm_image$Image$Info$BmpBitsPerPixel16);
+			case 24:
+				return $elm$bytes$Bytes$Decode$succeed($justgook$elm_image$Image$Info$BmpBitsPerPixel24);
+			case 32:
+				return $elm$bytes$Bytes$Decode$succeed($justgook$elm_image$Image$Info$BmpBitsPerPixel32);
+			default:
+				return $elm$bytes$Bytes$Decode$fail;
+		}
+	},
+	$elm$bytes$Bytes$Decode$unsignedInt16($elm$bytes$Bytes$LE));
+var $elm$bytes$Bytes$Decode$unsignedInt32 = function (endianness) {
+	return $elm$bytes$Bytes$Decode$Decoder(
+		_Bytes_read_u32(
+			_Utils_eq(endianness, $elm$bytes$Bytes$LE)));
+};
+var $justgook$elm_image$Image$Internal$BMP$decodeInfo = A2(
+	$justgook$elm_image$Image$Internal$Decode$andMap,
+	$elm$bytes$Bytes$Decode$unsignedInt32($elm$bytes$Bytes$LE),
+	A2(
+		$justgook$elm_image$Image$Internal$Decode$andMap,
+		$elm$bytes$Bytes$Decode$unsignedInt32($elm$bytes$Bytes$LE),
+		A2(
+			$justgook$elm_image$Image$Internal$Decode$andMap,
+			$justgook$elm_image$Image$Internal$BMP$bitsPerPixelDecode,
+			A2(
+				$justgook$elm_image$Image$Internal$Decode$andMap,
+				$elm$bytes$Bytes$Decode$unsignedInt16($elm$bytes$Bytes$LE),
+				A2(
+					$justgook$elm_image$Image$Internal$Decode$andMap,
+					$elm$bytes$Bytes$Decode$unsignedInt32($elm$bytes$Bytes$LE),
+					A2(
+						$justgook$elm_image$Image$Internal$Decode$andMap,
+						$elm$bytes$Bytes$Decode$unsignedInt32($elm$bytes$Bytes$LE),
+						A2(
+							$justgook$elm_image$Image$Internal$Decode$andMap,
+							$elm$bytes$Bytes$Decode$unsignedInt32($elm$bytes$Bytes$LE),
+							A2(
+								$justgook$elm_image$Image$Internal$Decode$andMap,
+								$elm$bytes$Bytes$Decode$unsignedInt32($elm$bytes$Bytes$LE),
+								A2(
+									$justgook$elm_image$Image$Internal$Decode$andMap,
+									$elm$bytes$Bytes$Decode$unsignedInt32($elm$bytes$Bytes$LE),
+									A2(
+										$justgook$elm_image$Image$Internal$Decode$andMap,
+										$elm$bytes$Bytes$Decode$unsignedInt32($elm$bytes$Bytes$LE),
+										$elm$bytes$Bytes$Decode$succeed(
+											function (fileSize) {
+												return function (_v0) {
+													return function (pixelStart) {
+														return function (dibHeader) {
+															return function (width) {
+																return function (height) {
+																	return function (color_planes) {
+																		return function (bitsPerPixel) {
+																			return function (compression) {
+																				return function (dataSize) {
+																					return {bitsPerPixel: bitsPerPixel, color_planes: color_planes, compression: compression, dataSize: dataSize, dibHeader: dibHeader, fileSize: fileSize, height: height, pixelStart: pixelStart, width: width};
+																				};
+																			};
+																		};
+																	};
+																};
+															};
+														};
+													};
+												};
+											})))))))))));
+var $justgook$elm_image$Image$Internal$ImageData$List2d = F2(
+	function (a, b) {
+		return {$: 'List2d', a: a, b: b};
+	});
+var $elm$bytes$Bytes$Decode$bytes = function (n) {
+	return $elm$bytes$Bytes$Decode$Decoder(
+		_Bytes_read_bytes(n));
+};
+var $elm$bytes$Bytes$Decode$Done = function (a) {
+	return {$: 'Done', a: a};
+};
+var $elm$bytes$Bytes$Decode$Loop = function (a) {
+	return {$: 'Loop', a: a};
+};
+var $elm$bytes$Bytes$Decode$map = F2(
+	function (func, _v0) {
+		var decodeA = _v0.a;
+		return $elm$bytes$Bytes$Decode$Decoder(
+			F2(
+				function (bites, offset) {
+					var _v1 = A2(decodeA, bites, offset);
+					var aOffset = _v1.a;
+					var a = _v1.b;
+					return _Utils_Tuple2(
+						aOffset,
+						func(a));
+				}));
+	});
+var $justgook$elm_image$Image$Internal$Decode$listStep = F2(
+	function (decoder, _v0) {
+		var n = _v0.a;
+		var xs = _v0.b;
+		return (n <= 0) ? $elm$bytes$Bytes$Decode$succeed(
+			$elm$bytes$Bytes$Decode$Done(xs)) : A2(
+			$elm$bytes$Bytes$Decode$map,
+			function (x) {
+				return $elm$bytes$Bytes$Decode$Loop(
+					_Utils_Tuple2(
+						n - 1,
+						A2($elm$core$List$cons, x, xs)));
+			},
+			decoder);
+	});
+var $elm$bytes$Bytes$Decode$loopHelp = F4(
+	function (state, callback, bites, offset) {
+		loopHelp:
+		while (true) {
+			var _v0 = callback(state);
+			var decoder = _v0.a;
+			var _v1 = A2(decoder, bites, offset);
+			var newOffset = _v1.a;
+			var step = _v1.b;
+			if (step.$ === 'Loop') {
+				var newState = step.a;
+				var $temp$state = newState,
+					$temp$callback = callback,
+					$temp$bites = bites,
+					$temp$offset = newOffset;
+				state = $temp$state;
+				callback = $temp$callback;
+				bites = $temp$bites;
+				offset = $temp$offset;
+				continue loopHelp;
+			} else {
+				var result = step.a;
+				return _Utils_Tuple2(newOffset, result);
+			}
+		}
+	});
+var $elm$bytes$Bytes$Decode$loop = F2(
+	function (state, callback) {
+		return $elm$bytes$Bytes$Decode$Decoder(
+			A2($elm$bytes$Bytes$Decode$loopHelp, state, callback));
+	});
+var $justgook$elm_image$Image$Internal$Decode$listR = F2(
+	function (count, decoder) {
+		return A2(
+			$elm$bytes$Bytes$Decode$loop,
+			_Utils_Tuple2(count, _List_Nil),
+			$justgook$elm_image$Image$Internal$Decode$listStep(decoder));
+	});
+var $justgook$elm_image$Image$Internal$BMP$decode16 = function (info) {
+	return A2(
+		$elm$bytes$Bytes$Decode$map,
+		$justgook$elm_image$Image$Internal$ImageData$List2d(
+			$justgook$elm_image$Image$Info$Bmp(info)),
+		A2(
+			$elm$bytes$Bytes$Decode$andThen,
+			function (_v0) {
+				return A2(
+					$justgook$elm_image$Image$Internal$Decode$listR,
+					info.height,
+					A2(
+						$elm$bytes$Bytes$Decode$map,
+						$elm$core$List$reverse,
+						A2(
+							$justgook$elm_image$Image$Internal$Decode$listR,
+							info.width,
+							$elm$bytes$Bytes$Decode$unsignedInt16($elm$bytes$Bytes$LE))));
+			},
+			$elm$bytes$Bytes$Decode$bytes(info.pixelStart)));
+};
+var $elm$core$Bitwise$or = _Bitwise_or;
+var $elm$core$Bitwise$shiftLeftBy = _Bitwise_shiftLeftBy;
+var $elm$bytes$Bytes$Decode$unsignedInt8 = $elm$bytes$Bytes$Decode$Decoder(_Bytes_read_u8);
+var $justgook$elm_image$Image$Internal$Decode$unsignedInt24 = function (endianness) {
+	if (endianness.$ === 'LE') {
+		return A3(
+			$elm$bytes$Bytes$Decode$map2,
+			F2(
+				function (b2, b1) {
+					return (b1 << 16) | b2;
+				}),
+			$elm$bytes$Bytes$Decode$unsignedInt16(endianness),
+			$elm$bytes$Bytes$Decode$unsignedInt8);
+	} else {
+		return A3(
+			$elm$bytes$Bytes$Decode$map2,
+			F2(
+				function (b1, b2) {
+					return (b1 << 8) | b2;
+				}),
+			$elm$bytes$Bytes$Decode$unsignedInt16(endianness),
+			$elm$bytes$Bytes$Decode$unsignedInt8);
+	}
+};
+var $justgook$elm_image$Image$Internal$BMP$decode24 = function (info) {
+	return A2(
+		$elm$bytes$Bytes$Decode$map,
+		$justgook$elm_image$Image$Internal$ImageData$List2d(
+			$justgook$elm_image$Image$Info$Bmp(info)),
+		A2(
+			$elm$bytes$Bytes$Decode$andThen,
+			function (_v0) {
+				return A2(
+					$justgook$elm_image$Image$Internal$Decode$listR,
+					info.height,
+					A2(
+						$elm$bytes$Bytes$Decode$map,
+						$elm$core$List$reverse,
+						A2(
+							$justgook$elm_image$Image$Internal$Decode$listR,
+							info.width,
+							$justgook$elm_image$Image$Internal$Decode$unsignedInt24($elm$bytes$Bytes$LE))));
+			},
+			$elm$bytes$Bytes$Decode$bytes(info.pixelStart)));
+};
+var $justgook$elm_image$Image$Internal$BMP$decode32 = function (info) {
+	return A2(
+		$elm$bytes$Bytes$Decode$map,
+		$justgook$elm_image$Image$Internal$ImageData$List2d(
+			$justgook$elm_image$Image$Info$Bmp(info)),
+		A2(
+			$elm$bytes$Bytes$Decode$andThen,
+			function (_v0) {
+				return A2(
+					$justgook$elm_image$Image$Internal$Decode$listR,
+					info.height,
+					A2(
+						$elm$bytes$Bytes$Decode$map,
+						$elm$core$List$reverse,
+						A2(
+							$justgook$elm_image$Image$Internal$Decode$listR,
+							info.width,
+							$elm$bytes$Bytes$Decode$unsignedInt32($elm$bytes$Bytes$LE))));
+			},
+			$elm$bytes$Bytes$Decode$bytes(info.pixelStart)));
+};
+var $justgook$elm_image$Image$Internal$BMP$decode8 = function (info) {
+	return A2(
+		$elm$bytes$Bytes$Decode$map,
+		$justgook$elm_image$Image$Internal$ImageData$List2d(
+			$justgook$elm_image$Image$Info$Bmp(info)),
+		A2(
+			$elm$bytes$Bytes$Decode$andThen,
+			function (_v0) {
+				return A2(
+					$justgook$elm_image$Image$Internal$Decode$listR,
+					info.height,
+					A2(
+						$elm$bytes$Bytes$Decode$map,
+						$elm$core$List$reverse,
+						A2($justgook$elm_image$Image$Internal$Decode$listR, info.width, $elm$bytes$Bytes$Decode$unsignedInt8)));
+			},
+			$elm$bytes$Bytes$Decode$bytes(info.pixelStart)));
+};
+var $justgook$elm_image$Image$Internal$BMP$imageDecoder = function (info) {
+	var _v0 = info.bitsPerPixel;
+	switch (_v0.$) {
+		case 'BmpBitsPerPixel32':
+			return $justgook$elm_image$Image$Internal$BMP$decode32(info);
+		case 'BmpBitsPerPixel24':
+			return $justgook$elm_image$Image$Internal$BMP$decode24(info);
+		case 'BmpBitsPerPixel16':
+			return $justgook$elm_image$Image$Internal$BMP$decode16(info);
+		default:
+			return $justgook$elm_image$Image$Internal$BMP$decode8(info);
+	}
+};
+var $elm$bytes$Bytes$Decode$string = function (n) {
+	return $elm$bytes$Bytes$Decode$Decoder(
+		_Bytes_read_string(n));
+};
+var $justgook$elm_image$Image$Internal$BMP$decoder = function (bytes) {
+	return A2(
+		$elm$bytes$Bytes$Decode$andThen,
+		function (bm) {
+			return (bm === 'BM') ? A2(
+				$elm$bytes$Bytes$Decode$andThen,
+				function (info) {
+					return $elm$bytes$Bytes$Decode$succeed(
+						A3(
+							$justgook$elm_image$Image$Internal$ImageData$Bytes,
+							$justgook$elm_image$Image$Info$Bmp(info),
+							$justgook$elm_image$Image$Internal$BMP$imageDecoder(info),
+							bytes));
+				},
+				$justgook$elm_image$Image$Internal$BMP$decodeInfo) : $elm$bytes$Bytes$Decode$fail;
+		},
+		$elm$bytes$Bytes$Decode$string(2));
+};
+var $justgook$elm_image$Image$Internal$BMP$decode = function (bytes) {
+	return A2(
+		$elm$bytes$Bytes$Decode$decode,
+		$justgook$elm_image$Image$Internal$BMP$decoder(bytes),
+		bytes);
+};
+var $justgook$elm_image$Image$Internal$PNG$listStep = F2(
+	function (decoder_, _v0) {
+		var length_ = _v0.a;
+		var acc = _v0.b;
+		return A2(
+			$elm$bytes$Bytes$Decode$map,
+			function (_v1) {
+				var bytesTaken = _v1.a;
+				var newAcc = _v1.b;
+				return ((length_ - bytesTaken) > 0) ? $elm$bytes$Bytes$Decode$Loop(
+					_Utils_Tuple2(length_ - bytesTaken, newAcc)) : $elm$bytes$Bytes$Decode$Done(newAcc);
+			},
+			decoder_(acc));
+	});
+var $justgook$elm_image$Image$Internal$PNG$chunkLoopR = F2(
+	function (length, decoder) {
+		return A2(
+			$elm$bytes$Bytes$Decode$loop,
+			_Utils_Tuple2(length, $elm$core$Maybe$Nothing),
+			$justgook$elm_image$Image$Internal$PNG$listStep(decoder));
+	});
+var $elm$bytes$Bytes$BE = {$: 'BE'};
+var $justgook$elm_image$Image$Internal$PNG$Collecting = function (a) {
+	return {$: 'Collecting', a: a};
+};
+var $elm$bytes$Bytes$Encode$Bytes = function (a) {
+	return {$: 'Bytes', a: a};
+};
+var $elm$bytes$Bytes$Encode$bytes = $elm$bytes$Bytes$Encode$Bytes;
+var $elm$bytes$Bytes$Encode$Seq = F2(
+	function (a, b) {
+		return {$: 'Seq', a: a, b: b};
+	});
+var $elm$bytes$Bytes$Encode$getWidths = F2(
+	function (width, builders) {
+		getWidths:
+		while (true) {
+			if (!builders.b) {
+				return width;
+			} else {
+				var b = builders.a;
+				var bs = builders.b;
+				var $temp$width = width + $elm$bytes$Bytes$Encode$getWidth(b),
+					$temp$builders = bs;
+				width = $temp$width;
+				builders = $temp$builders;
+				continue getWidths;
+			}
+		}
+	});
+var $elm$bytes$Bytes$Encode$sequence = function (builders) {
+	return A2(
+		$elm$bytes$Bytes$Encode$Seq,
+		A2($elm$bytes$Bytes$Encode$getWidths, 0, builders),
+		builders);
+};
+var $justgook$elm_image$Image$Internal$PNG$decodeIDAT = F2(
+	function (image, length) {
+		return A2(
+			$elm$bytes$Bytes$Decode$map,
+			function (b) {
+				var _v0 = image.data;
+				switch (_v0.$) {
+					case 'Collecting':
+						var e = _v0.a;
+						return _Utils_update(
+							image,
+							{
+								data: $justgook$elm_image$Image$Internal$PNG$Collecting(
+									$elm$bytes$Bytes$Encode$sequence(
+										_List_fromArray(
+											[
+												e,
+												$elm$bytes$Bytes$Encode$bytes(b)
+											])))
+							});
+					case 'None':
+						return _Utils_update(
+							image,
+							{
+								data: $justgook$elm_image$Image$Internal$PNG$Collecting(
+									$elm$bytes$Bytes$Encode$bytes(b))
+							});
+					default:
+						return image;
+				}
+			},
+			$elm$bytes$Bytes$Decode$bytes(length));
+	});
+var $justgook$elm_image$Image$Internal$PNG$ImageData = function (a) {
+	return {$: 'ImageData', a: a};
+};
+var $justgook$elm_image$Image$Info$Png = function (a) {
+	return {$: 'Png', a: a};
+};
+var $elm$bytes$Bytes$Encode$encode = _Bytes_encode;
+var $elm$core$Maybe$andThen = F2(
+	function (callback, maybeValue) {
+		if (maybeValue.$ === 'Just') {
+			var value = maybeValue.a;
+			return callback(value);
+		} else {
+			return $elm$core$Maybe$Nothing;
+		}
+	});
+var $elm$core$Basics$composeR = F3(
+	function (f, g, x) {
+		return g(
+			f(x));
+	});
+var $justgook$elm_image$Image$Internal$ImageData$Array2d = F2(
+	function (a, b) {
+		return {$: 'Array2d', a: a, b: b};
+	});
+var $justgook$elm_image$Image$Internal$Decode$foldlStep = F2(
+	function (decoder, _v0) {
+		var n = _v0.a;
+		var acc = _v0.b;
+		return (n <= 0) ? $elm$bytes$Bytes$Decode$succeed(
+			$elm$bytes$Bytes$Decode$Done(acc)) : A2(
+			$elm$bytes$Bytes$Decode$map,
+			function (x) {
+				return $elm$bytes$Bytes$Decode$Loop(
+					_Utils_Tuple2(n - 1, x));
+			},
+			decoder(acc));
+	});
+var $justgook$elm_image$Image$Internal$Decode$foldl = F3(
+	function (count, decoder, acc) {
+		return A2(
+			$elm$bytes$Bytes$Decode$loop,
+			_Utils_Tuple2(count, acc),
+			$justgook$elm_image$Image$Internal$Decode$foldlStep(decoder));
+	});
+var $elm$core$Elm$JsArray$push = _JsArray_push;
+var $elm$core$Bitwise$and = _Bitwise_and;
+var $elm$core$Bitwise$shiftRightZfBy = _Bitwise_shiftRightZfBy;
+var $elm$core$Array$bitMask = 4294967295 >>> (32 - $elm$core$Array$shiftStep);
+var $elm$core$Basics$ge = _Utils_ge;
+var $elm$core$Elm$JsArray$singleton = _JsArray_singleton;
+var $elm$core$Elm$JsArray$unsafeGet = _JsArray_unsafeGet;
+var $elm$core$Elm$JsArray$unsafeSet = _JsArray_unsafeSet;
+var $elm$core$Array$insertTailInTree = F4(
+	function (shift, index, tail, tree) {
+		var pos = $elm$core$Array$bitMask & (index >>> shift);
+		if (_Utils_cmp(
+			pos,
+			$elm$core$Elm$JsArray$length(tree)) > -1) {
+			if (shift === 5) {
+				return A2(
+					$elm$core$Elm$JsArray$push,
+					$elm$core$Array$Leaf(tail),
+					tree);
+			} else {
+				var newSub = $elm$core$Array$SubTree(
+					A4($elm$core$Array$insertTailInTree, shift - $elm$core$Array$shiftStep, index, tail, $elm$core$Elm$JsArray$empty));
+				return A2($elm$core$Elm$JsArray$push, newSub, tree);
+			}
+		} else {
+			var value = A2($elm$core$Elm$JsArray$unsafeGet, pos, tree);
+			if (value.$ === 'SubTree') {
+				var subTree = value.a;
+				var newSub = $elm$core$Array$SubTree(
+					A4($elm$core$Array$insertTailInTree, shift - $elm$core$Array$shiftStep, index, tail, subTree));
+				return A3($elm$core$Elm$JsArray$unsafeSet, pos, newSub, tree);
+			} else {
+				var newSub = $elm$core$Array$SubTree(
+					A4(
+						$elm$core$Array$insertTailInTree,
+						shift - $elm$core$Array$shiftStep,
+						index,
+						tail,
+						$elm$core$Elm$JsArray$singleton(value)));
+				return A3($elm$core$Elm$JsArray$unsafeSet, pos, newSub, tree);
+			}
+		}
+	});
+var $elm$core$Array$unsafeReplaceTail = F2(
+	function (newTail, _v0) {
+		var len = _v0.a;
+		var startShift = _v0.b;
+		var tree = _v0.c;
+		var tail = _v0.d;
+		var originalTailLen = $elm$core$Elm$JsArray$length(tail);
+		var newTailLen = $elm$core$Elm$JsArray$length(newTail);
+		var newArrayLen = len + (newTailLen - originalTailLen);
+		if (_Utils_eq(newTailLen, $elm$core$Array$branchFactor)) {
+			var overflow = _Utils_cmp(newArrayLen >>> $elm$core$Array$shiftStep, 1 << startShift) > 0;
+			if (overflow) {
+				var newShift = startShift + $elm$core$Array$shiftStep;
+				var newTree = A4(
+					$elm$core$Array$insertTailInTree,
+					newShift,
+					len,
+					newTail,
+					$elm$core$Elm$JsArray$singleton(
+						$elm$core$Array$SubTree(tree)));
+				return A4($elm$core$Array$Array_elm_builtin, newArrayLen, newShift, newTree, $elm$core$Elm$JsArray$empty);
+			} else {
+				return A4(
+					$elm$core$Array$Array_elm_builtin,
+					newArrayLen,
+					startShift,
+					A4($elm$core$Array$insertTailInTree, startShift, len, newTail, tree),
+					$elm$core$Elm$JsArray$empty);
+			}
+		} else {
+			return A4($elm$core$Array$Array_elm_builtin, newArrayLen, startShift, tree, newTail);
+		}
+	});
+var $elm$core$Array$push = F2(
+	function (a, array) {
+		var tail = array.d;
+		return A2(
+			$elm$core$Array$unsafeReplaceTail,
+			A2($elm$core$Elm$JsArray$push, a, tail),
+			array);
+	});
+var $justgook$elm_image$Image$Internal$PNG$decodeLine = F3(
+	function (pxDecode, width, acc) {
+		return A2(
+			$elm$bytes$Bytes$Decode$andThen,
+			function (filterType) {
+				return A3(
+					$justgook$elm_image$Image$Internal$Decode$foldl,
+					width,
+					pxDecode(filterType),
+					A2($elm$core$Array$push, $elm$core$Array$empty, acc));
+			},
+			$elm$bytes$Bytes$Decode$unsignedInt8);
+	});
+var $justgook$elm_image$Image$Internal$PNG$dataWrapDecode = F3(
+	function (pxDecode, width, height) {
+		return A3(
+			$justgook$elm_image$Image$Internal$Decode$foldl,
+			height,
+			A2($justgook$elm_image$Image$Internal$PNG$decodeLine, pxDecode, width),
+			$elm$core$Array$empty);
+	});
+var $elm$core$Array$getHelp = F3(
+	function (shift, index, tree) {
+		getHelp:
+		while (true) {
+			var pos = $elm$core$Array$bitMask & (index >>> shift);
+			var _v0 = A2($elm$core$Elm$JsArray$unsafeGet, pos, tree);
+			if (_v0.$ === 'SubTree') {
+				var subTree = _v0.a;
+				var $temp$shift = shift - $elm$core$Array$shiftStep,
+					$temp$index = index,
+					$temp$tree = subTree;
+				shift = $temp$shift;
+				index = $temp$index;
+				tree = $temp$tree;
+				continue getHelp;
+			} else {
+				var values = _v0.a;
+				return A2($elm$core$Elm$JsArray$unsafeGet, $elm$core$Array$bitMask & index, values);
+			}
+		}
+	});
+var $elm$core$Array$tailIndex = function (len) {
+	return (len >>> 5) << 5;
+};
+var $elm$core$Array$get = F2(
+	function (index, _v0) {
+		var len = _v0.a;
+		var startShift = _v0.b;
+		var tree = _v0.c;
+		var tail = _v0.d;
+		return ((index < 0) || (_Utils_cmp(index, len) > -1)) ? $elm$core$Maybe$Nothing : ((_Utils_cmp(
+			index,
+			$elm$core$Array$tailIndex(len)) > -1) ? $elm$core$Maybe$Just(
+			A2($elm$core$Elm$JsArray$unsafeGet, $elm$core$Array$bitMask & index, tail)) : $elm$core$Maybe$Just(
+			A3($elm$core$Array$getHelp, startShift, index, tree)));
+	});
+var $elm$core$Maybe$map = F2(
+	function (f, maybe) {
+		if (maybe.$ === 'Just') {
+			var value = maybe.a;
+			return $elm$core$Maybe$Just(
+				f(value));
+		} else {
+			return $elm$core$Maybe$Nothing;
+		}
+	});
+var $justgook$elm_image$Image$Internal$PNG$pixelDecode8None_ = $elm$bytes$Bytes$Decode$unsignedInt8;
+var $elm$core$Array$length = function (_v0) {
+	var len = _v0.a;
+	return len;
+};
+var $justgook$elm_image$Image$Internal$Array2D$lastIndex_ = function (arr) {
+	return $elm$core$Array$length(arr) - 1;
+};
+var $justgook$elm_image$Image$Internal$Array2D$last = function (arr) {
+	return A2(
+		$elm$core$Maybe$andThen,
+		function (subArr) {
+			return A2(
+				$elm$core$Array$get,
+				$justgook$elm_image$Image$Internal$Array2D$lastIndex_(subArr),
+				subArr);
+		},
+		A2(
+			$elm$core$Array$get,
+			$justgook$elm_image$Image$Internal$Array2D$lastIndex_(arr),
+			arr));
+};
+var $elm$core$Maybe$withDefault = F2(
+	function (_default, maybe) {
+		if (maybe.$ === 'Just') {
+			var value = maybe.a;
+			return value;
+		} else {
+			return _default;
+		}
+	});
+var $justgook$elm_image$Image$Internal$Array2D$lastLength = function (arr) {
+	return A2(
+		$elm$core$Maybe$withDefault,
+		0,
+		A2(
+			$elm$core$Maybe$map,
+			$elm$core$Array$length,
+			A2(
+				$elm$core$Array$get,
+				$justgook$elm_image$Image$Internal$Array2D$lastIndex_(arr),
+				arr)));
+};
+var $justgook$elm_image$Image$Internal$PNG$arrayPaeth = function (arr) {
+	return A2(
+		$elm$core$Maybe$withDefault,
+		_Utils_Tuple3(0, 0, 0),
+		A2(
+			$elm$core$Maybe$map,
+			function (subArr) {
+				var currentIndex = $justgook$elm_image$Image$Internal$Array2D$lastLength(arr);
+				return _Utils_Tuple3(
+					A2(
+						$elm$core$Maybe$withDefault,
+						0,
+						$justgook$elm_image$Image$Internal$Array2D$last(arr)),
+					A2(
+						$elm$core$Maybe$withDefault,
+						0,
+						A2($elm$core$Array$get, currentIndex, subArr)),
+					A2(
+						$elm$core$Maybe$withDefault,
+						0,
+						A2($elm$core$Array$get, currentIndex - 1, subArr)));
+			},
+			A2(
+				$elm$core$Array$get,
+				$elm$core$Array$length(arr) - 2,
+				arr)));
+};
+var $elm$core$Basics$negate = function (n) {
+	return -n;
+};
+var $elm$core$Basics$abs = function (n) {
+	return (n < 0) ? (-n) : n;
+};
+var $justgook$elm_image$Image$Internal$PNG$paeth = F3(
+	function (a, b, c) {
+		var p = (a + b) - c;
+		var pa = $elm$core$Basics$abs(p - a);
+		var pb = $elm$core$Basics$abs(p - b);
+		var pc = $elm$core$Basics$abs(p - c);
+		return ((_Utils_cmp(pa, pb) < 1) && (_Utils_cmp(pa, pc) < 1)) ? a : ((_Utils_cmp(pb, pc) < 1) ? b : c);
+	});
+var $justgook$elm_image$Image$Internal$PNG$pixelDecode8Paeth_ = function (acc) {
+	return A2(
+		$elm$bytes$Bytes$Decode$map,
+		function (a_) {
+			var _v0 = $justgook$elm_image$Image$Internal$PNG$arrayPaeth(acc);
+			var prevA_ = _v0.a;
+			var prevB_ = _v0.b;
+			var prevC_ = _v0.c;
+			var prevA = A3($justgook$elm_image$Image$Internal$PNG$paeth, 255 & prevA_, 255 & prevB_, 255 & prevC_);
+			var a = a_ + prevA;
+			return a;
+		},
+		$elm$bytes$Bytes$Decode$unsignedInt8);
+};
+var $justgook$elm_image$Image$Internal$PNG$pixelDecode8Sub_ = function (acc) {
+	return A2(
+		$elm$bytes$Bytes$Decode$map,
+		function (a_) {
+			var prev = A2(
+				$elm$core$Maybe$withDefault,
+				0,
+				$justgook$elm_image$Image$Internal$Array2D$last(acc));
+			var prevA = 255 & prev;
+			var a = a_ + prevA;
+			return a;
+		},
+		$elm$bytes$Bytes$Decode$unsignedInt8);
+};
+var $justgook$elm_image$Image$Internal$PNG$arrayUp = function (arr) {
+	return A2(
+		$elm$core$Maybe$andThen,
+		$elm$core$Array$get(
+			$justgook$elm_image$Image$Internal$Array2D$lastLength(arr)),
+		A2(
+			$elm$core$Array$get,
+			$elm$core$Array$length(arr) - 2,
+			arr));
+};
+var $justgook$elm_image$Image$Internal$PNG$pixelDecode8Up_ = function (acc) {
+	return A2(
+		$elm$bytes$Bytes$Decode$map,
+		function (a_) {
+			var prev = A2(
+				$elm$core$Maybe$withDefault,
+				0,
+				$justgook$elm_image$Image$Internal$PNG$arrayUp(acc));
+			var prevA = 255 & prev;
+			var a = a_ + prevA;
+			return a;
+		},
+		$elm$bytes$Bytes$Decode$unsignedInt8);
+};
+var $justgook$elm_image$Image$Internal$PNG$pixel8DecodePlain = F2(
+	function (filterType, acc) {
+		switch (filterType) {
+			case 0:
+				return $justgook$elm_image$Image$Internal$PNG$pixelDecode8None_;
+			case 1:
+				return $justgook$elm_image$Image$Internal$PNG$pixelDecode8Sub_(acc);
+			case 2:
+				return $justgook$elm_image$Image$Internal$PNG$pixelDecode8Up_(acc);
+			case 4:
+				return $justgook$elm_image$Image$Internal$PNG$pixelDecode8Paeth_(acc);
+			default:
+				return $justgook$elm_image$Image$Internal$PNG$pixelDecode8None_;
+		}
+	});
+var $elm$core$Array$setHelp = F4(
+	function (shift, index, value, tree) {
+		var pos = $elm$core$Array$bitMask & (index >>> shift);
+		var _v0 = A2($elm$core$Elm$JsArray$unsafeGet, pos, tree);
+		if (_v0.$ === 'SubTree') {
+			var subTree = _v0.a;
+			var newSub = A4($elm$core$Array$setHelp, shift - $elm$core$Array$shiftStep, index, value, subTree);
+			return A3(
+				$elm$core$Elm$JsArray$unsafeSet,
+				pos,
+				$elm$core$Array$SubTree(newSub),
+				tree);
+		} else {
+			var values = _v0.a;
+			var newLeaf = A3($elm$core$Elm$JsArray$unsafeSet, $elm$core$Array$bitMask & index, value, values);
+			return A3(
+				$elm$core$Elm$JsArray$unsafeSet,
+				pos,
+				$elm$core$Array$Leaf(newLeaf),
+				tree);
+		}
+	});
+var $elm$core$Array$set = F3(
+	function (index, value, array) {
+		var len = array.a;
+		var startShift = array.b;
+		var tree = array.c;
+		var tail = array.d;
+		return ((index < 0) || (_Utils_cmp(index, len) > -1)) ? array : ((_Utils_cmp(
+			index,
+			$elm$core$Array$tailIndex(len)) > -1) ? A4(
+			$elm$core$Array$Array_elm_builtin,
+			len,
+			startShift,
+			tree,
+			A3($elm$core$Elm$JsArray$unsafeSet, $elm$core$Array$bitMask & index, value, tail)) : A4(
+			$elm$core$Array$Array_elm_builtin,
+			len,
+			startShift,
+			A4($elm$core$Array$setHelp, startShift, index, value, tree),
+			tail));
+	});
+var $justgook$elm_image$Image$Internal$Array2D$push = F2(
+	function (item, arr) {
+		return A2(
+			$elm$core$Maybe$withDefault,
+			arr,
+			A2(
+				$elm$core$Maybe$map,
+				function (arr2) {
+					return A3(
+						$elm$core$Array$set,
+						$justgook$elm_image$Image$Internal$Array2D$lastIndex_(arr),
+						A2($elm$core$Array$push, item, arr2),
+						arr);
+				},
+				A2(
+					$elm$core$Array$get,
+					$justgook$elm_image$Image$Internal$Array2D$lastIndex_(arr),
+					arr)));
+	});
+var $justgook$elm_image$Image$Internal$PNG$indexPixel8Decode = F3(
+	function (palette, filterType, acc) {
+		return A2(
+			$elm$bytes$Bytes$Decode$andThen,
+			function (i) {
+				return A2(
+					$elm$core$Maybe$withDefault,
+					$elm$bytes$Bytes$Decode$fail,
+					A2(
+						$elm$core$Maybe$map,
+						function (c) {
+							return $elm$bytes$Bytes$Decode$succeed(
+								A2($justgook$elm_image$Image$Internal$Array2D$push, c, acc));
+						},
+						A2($elm$core$Array$get, i, palette)));
+			},
+			A2($justgook$elm_image$Image$Internal$PNG$pixel8DecodePlain, filterType, acc));
+	});
+var $justgook$elm_image$Image$Internal$PNG$pixelDecode16None_ = $elm$bytes$Bytes$Decode$unsignedInt16($elm$bytes$Bytes$BE);
+var $justgook$elm_image$Image$Internal$PNG$packIntoInt16 = F2(
+	function (b, a) {
+		return ((255 & b) << 8) | (255 & a);
+	});
+var $elm$core$Bitwise$shiftRightBy = _Bitwise_shiftRightBy;
+var $justgook$elm_image$Image$Internal$PNG$pixelDecode16Paeth_ = function (acc) {
+	return A3(
+		$elm$bytes$Bytes$Decode$map2,
+		F2(
+			function (b_, a_) {
+				var _v0 = $justgook$elm_image$Image$Internal$PNG$arrayPaeth(acc);
+				var prevA_ = _v0.a;
+				var prevB_ = _v0.b;
+				var prevC_ = _v0.c;
+				var prevA = A3($justgook$elm_image$Image$Internal$PNG$paeth, 255 & prevA_, 255 & prevB_, 255 & prevC_);
+				var a = a_ + prevA;
+				var prevB = A3($justgook$elm_image$Image$Internal$PNG$paeth, 255 & (prevA_ >> 8), 255 & (prevB_ >> 8), 255 & (prevC_ >> 8));
+				var b = b_ + prevB;
+				return A2($justgook$elm_image$Image$Internal$PNG$packIntoInt16, b, a);
+			}),
+		$elm$bytes$Bytes$Decode$unsignedInt8,
+		$elm$bytes$Bytes$Decode$unsignedInt8);
+};
+var $justgook$elm_image$Image$Internal$PNG$pixelDecode16Sub_ = function (acc) {
+	return A3(
+		$elm$bytes$Bytes$Decode$map2,
+		F2(
+			function (b_, a_) {
+				var prev = A2(
+					$elm$core$Maybe$withDefault,
+					0,
+					$justgook$elm_image$Image$Internal$Array2D$last(acc));
+				var prevA = 255 & prev;
+				var prevB = 255 & (prev >> 8);
+				var b = b_ + prevB;
+				var a = a_ + prevA;
+				return A2($justgook$elm_image$Image$Internal$PNG$packIntoInt16, b, a);
+			}),
+		$elm$bytes$Bytes$Decode$unsignedInt8,
+		$elm$bytes$Bytes$Decode$unsignedInt8);
+};
+var $justgook$elm_image$Image$Internal$PNG$pixelDecode16Up_ = function (acc) {
+	return A3(
+		$elm$bytes$Bytes$Decode$map2,
+		F2(
+			function (b_, a_) {
+				var prev = A2(
+					$elm$core$Maybe$withDefault,
+					0,
+					$justgook$elm_image$Image$Internal$PNG$arrayUp(acc));
+				var prevA = 255 & prev;
+				var prevB = 255 & (prev >> 8);
+				var b = b_ + prevB;
+				var a = a_ + prevA;
+				return A2($justgook$elm_image$Image$Internal$PNG$packIntoInt16, b, a);
+			}),
+		$elm$bytes$Bytes$Decode$unsignedInt8,
+		$elm$bytes$Bytes$Decode$unsignedInt8);
+};
+var $justgook$elm_image$Image$Internal$PNG$pixel16Decode = F2(
+	function (filterType, acc) {
+		return A2(
+			$elm$bytes$Bytes$Decode$map,
+			function (a) {
+				return A2($justgook$elm_image$Image$Internal$Array2D$push, a, acc);
+			},
+			function () {
+				switch (filterType) {
+					case 0:
+						return $justgook$elm_image$Image$Internal$PNG$pixelDecode16None_;
+					case 1:
+						return $justgook$elm_image$Image$Internal$PNG$pixelDecode16Sub_(acc);
+					case 2:
+						return $justgook$elm_image$Image$Internal$PNG$pixelDecode16Up_(acc);
+					case 4:
+						return $justgook$elm_image$Image$Internal$PNG$pixelDecode16Paeth_(acc);
+					default:
+						return $justgook$elm_image$Image$Internal$PNG$pixelDecode16None_;
+				}
+			}());
+	});
+var $justgook$elm_image$Image$Internal$PNG$pixelDecode32None_ = $elm$bytes$Bytes$Decode$unsignedInt32($elm$bytes$Bytes$BE);
+var $elm$bytes$Bytes$Decode$map4 = F5(
+	function (func, _v0, _v1, _v2, _v3) {
+		var decodeA = _v0.a;
+		var decodeB = _v1.a;
+		var decodeC = _v2.a;
+		var decodeD = _v3.a;
+		return $elm$bytes$Bytes$Decode$Decoder(
+			F2(
+				function (bites, offset) {
+					var _v4 = A2(decodeA, bites, offset);
+					var aOffset = _v4.a;
+					var a = _v4.b;
+					var _v5 = A2(decodeB, bites, aOffset);
+					var bOffset = _v5.a;
+					var b = _v5.b;
+					var _v6 = A2(decodeC, bites, bOffset);
+					var cOffset = _v6.a;
+					var c = _v6.b;
+					var _v7 = A2(decodeD, bites, cOffset);
+					var dOffset = _v7.a;
+					var d = _v7.b;
+					return _Utils_Tuple2(
+						dOffset,
+						A4(func, a, b, c, d));
+				}));
+	});
+var $justgook$elm_image$Image$Internal$PNG$packIntoInt32 = F4(
+	function (r, g, b, a) {
+		return (((255 & r) << 24) | ((255 & g) << 16)) | (((255 & b) << 8) | (255 & a));
+	});
+var $justgook$elm_image$Image$Internal$PNG$pixelDecode32Paeth_ = function (acc) {
+	return A5(
+		$elm$bytes$Bytes$Decode$map4,
+		F4(
+			function (r_, g_, b_, a_) {
+				var _v0 = $justgook$elm_image$Image$Internal$PNG$arrayPaeth(acc);
+				var prevA_ = _v0.a;
+				var prevB_ = _v0.b;
+				var prevC_ = _v0.c;
+				var prevA = A3($justgook$elm_image$Image$Internal$PNG$paeth, 255 & prevA_, 255 & prevB_, 255 & prevC_);
+				var a = a_ + prevA;
+				var prevB = A3($justgook$elm_image$Image$Internal$PNG$paeth, 255 & (prevA_ >> 8), 255 & (prevB_ >> 8), 255 & (prevC_ >> 8));
+				var b = b_ + prevB;
+				var prevG = A3($justgook$elm_image$Image$Internal$PNG$paeth, 255 & (prevA_ >> 16), 255 & (prevB_ >> 16), 255 & (prevC_ >> 16));
+				var g = g_ + prevG;
+				var prevR = A3($justgook$elm_image$Image$Internal$PNG$paeth, 255 & (prevA_ >> 24), 255 & (prevB_ >> 24), 255 & (prevC_ >> 24));
+				var r = r_ + prevR;
+				return A4($justgook$elm_image$Image$Internal$PNG$packIntoInt32, r, g, b, a);
+			}),
+		$elm$bytes$Bytes$Decode$unsignedInt8,
+		$elm$bytes$Bytes$Decode$unsignedInt8,
+		$elm$bytes$Bytes$Decode$unsignedInt8,
+		$elm$bytes$Bytes$Decode$unsignedInt8);
+};
+var $justgook$elm_image$Image$Internal$PNG$pixelDecode32Sub_ = function (acc) {
+	return A5(
+		$elm$bytes$Bytes$Decode$map4,
+		F4(
+			function (r_, g_, b_, a_) {
+				var prev = A2(
+					$elm$core$Maybe$withDefault,
+					0,
+					$justgook$elm_image$Image$Internal$Array2D$last(acc));
+				var prevA = 255 & prev;
+				var prevB = 255 & (prev >> 8);
+				var prevG = 255 & (prev >> 16);
+				var prevR = prev >>> 24;
+				var r = r_ + prevR;
+				var g = g_ + prevG;
+				var b = b_ + prevB;
+				var a = a_ + prevA;
+				return A4($justgook$elm_image$Image$Internal$PNG$packIntoInt32, r, g, b, a);
+			}),
+		$elm$bytes$Bytes$Decode$unsignedInt8,
+		$elm$bytes$Bytes$Decode$unsignedInt8,
+		$elm$bytes$Bytes$Decode$unsignedInt8,
+		$elm$bytes$Bytes$Decode$unsignedInt8);
+};
+var $justgook$elm_image$Image$Internal$PNG$pixelDecode32Up_ = function (acc) {
+	return A5(
+		$elm$bytes$Bytes$Decode$map4,
+		F4(
+			function (r_, g_, b_, a_) {
+				var prev = A2(
+					$elm$core$Maybe$withDefault,
+					0,
+					$justgook$elm_image$Image$Internal$PNG$arrayUp(acc));
+				var prevA = 255 & prev;
+				var prevB = 255 & (prev >> 8);
+				var prevG = 255 & (prev >> 16);
+				var prevR = prev >>> 24;
+				var r = r_ + prevR;
+				var g = g_ + prevG;
+				var b = b_ + prevB;
+				var a = a_ + prevA;
+				return A4($justgook$elm_image$Image$Internal$PNG$packIntoInt32, r, g, b, a);
+			}),
+		$elm$bytes$Bytes$Decode$unsignedInt8,
+		$elm$bytes$Bytes$Decode$unsignedInt8,
+		$elm$bytes$Bytes$Decode$unsignedInt8,
+		$elm$bytes$Bytes$Decode$unsignedInt8);
+};
+var $justgook$elm_image$Image$Internal$PNG$pixel32Decode = F2(
+	function (filterType, acc) {
+		return A2(
+			$elm$bytes$Bytes$Decode$map,
+			function (a) {
+				return A2($justgook$elm_image$Image$Internal$Array2D$push, a, acc);
+			},
+			function () {
+				switch (filterType) {
+					case 0:
+						return $justgook$elm_image$Image$Internal$PNG$pixelDecode32None_;
+					case 1:
+						return $justgook$elm_image$Image$Internal$PNG$pixelDecode32Sub_(acc);
+					case 2:
+						return $justgook$elm_image$Image$Internal$PNG$pixelDecode32Up_(acc);
+					case 4:
+						return $justgook$elm_image$Image$Internal$PNG$pixelDecode32Paeth_(acc);
+					default:
+						return $justgook$elm_image$Image$Internal$PNG$pixelDecode32None_;
+				}
+			}());
+	});
+var $justgook$elm_image$Image$Internal$PNG$dataDecode = F2(
+	function (header, palette) {
+		var width = header.width;
+		var height = header.height;
+		var color = header.color;
+		_v0$3:
+		while (true) {
+			switch (color.$) {
+				case 'IndexedColour':
+					if (color.a.$ === 'BitDepth1_2_4_8__8') {
+						var _v1 = color.a;
+						return A2(
+							$elm$bytes$Bytes$Decode$map,
+							$justgook$elm_image$Image$Internal$ImageData$Array2d(
+								$justgook$elm_image$Image$Info$Png(header)),
+							A3(
+								$justgook$elm_image$Image$Internal$PNG$dataWrapDecode,
+								$justgook$elm_image$Image$Internal$PNG$indexPixel8Decode(palette),
+								width,
+								height));
+					} else {
+						break _v0$3;
+					}
+				case 'GreyscaleAlpha':
+					if (color.a.$ === 'BitDepth8_16__8') {
+						var _v2 = color.a;
+						return A2(
+							$elm$bytes$Bytes$Decode$map,
+							$justgook$elm_image$Image$Internal$ImageData$Array2d(
+								$justgook$elm_image$Image$Info$Png(header)),
+							A3($justgook$elm_image$Image$Internal$PNG$dataWrapDecode, $justgook$elm_image$Image$Internal$PNG$pixel16Decode, width, height));
+					} else {
+						break _v0$3;
+					}
+				case 'TrueColourAlpha':
+					if (color.a.$ === 'BitDepth8_16__8') {
+						var _v3 = color.a;
+						return A2(
+							$elm$bytes$Bytes$Decode$map,
+							$justgook$elm_image$Image$Internal$ImageData$Array2d(
+								$justgook$elm_image$Image$Info$Png(header)),
+							A3($justgook$elm_image$Image$Internal$PNG$dataWrapDecode, $justgook$elm_image$Image$Internal$PNG$pixel32Decode, width, height));
+					} else {
+						break _v0$3;
+					}
+				default:
+					break _v0$3;
+			}
+		}
+		return $elm$bytes$Bytes$Decode$fail;
+	});
+var $folkertdev$elm_flate$Inflate$ZLib$InflateError = function (a) {
+	return {$: 'InflateError', a: a};
+};
+var $folkertdev$elm_flate$Inflate$ZLib$InvalidAdler = function (a) {
+	return {$: 'InvalidAdler', a: a};
+};
+var $folkertdev$elm_flate$Inflate$ZLib$InvalidChecksum = {$: 'InvalidChecksum'};
+var $folkertdev$elm_flate$Inflate$ZLib$InvalidMethod = {$: 'InvalidMethod'};
+var $folkertdev$elm_flate$Inflate$ZLib$InvalidSlice = {$: 'InvalidSlice'};
+var $folkertdev$elm_flate$Inflate$ZLib$InvalidWindowSize = {$: 'InvalidWindowSize'};
+var $folkertdev$elm_flate$Inflate$ZLib$PresetDictionaryIssue = {$: 'PresetDictionaryIssue'};
+var $folkertdev$elm_flate$Checksum$Adler32$a32 = {base: 65521, nmax: 5552};
+var $folkertdev$elm_flate$Checksum$Adler32$step8Bytes = F5(
+	function (remaining, s1, s2, word1, word2) {
+		var byte8 = 255 & word2;
+		var byte7 = 255 & (word2 >>> 8);
+		var byte6 = 255 & (word2 >>> 16);
+		var byte5 = 255 & (word2 >>> 24);
+		var byte4 = 255 & word1;
+		var byte3 = 255 & (word1 >>> 8);
+		var byte2 = 255 & (word1 >>> 16);
+		var byte1 = 255 & (word1 >>> 24);
+		var s1a_1 = s1 + byte1;
+		var s1a_2 = s1a_1 + byte2;
+		var s1a_3 = s1a_2 + byte3;
+		var s1a_4 = s1a_3 + byte4;
+		var s2a_1 = s2 + s1a_1;
+		var s2a_2 = s2a_1 + s1a_2;
+		var s2a_3 = s2a_2 + s1a_3;
+		var s2a_4 = s2a_3 + s1a_4;
+		var s1b_1 = s1a_4 + byte5;
+		var s1b_2 = s1b_1 + byte6;
+		var s1b_3 = s1b_2 + byte7;
+		var s1b_4 = s1b_3 + byte8;
+		var s2b_1 = s2a_4 + s1b_1;
+		var s2b_2 = s2b_1 + s1b_2;
+		var s2b_3 = s2b_2 + s1b_3;
+		var s2b_4 = s2b_3 + s1b_4;
+		return $elm$bytes$Bytes$Decode$Loop(
+			{remaining: remaining - 8, s1: s1b_4, s2: s2b_4});
+	});
+var $folkertdev$elm_flate$Checksum$Adler32$processChunkHelp = function (_v0) {
+	var remaining = _v0.remaining;
+	var s1 = _v0.s1;
+	var s2 = _v0.s2;
+	return (remaining >= 8) ? A3(
+		$elm$bytes$Bytes$Decode$map2,
+		A3($folkertdev$elm_flate$Checksum$Adler32$step8Bytes, remaining, s1, s2),
+		$elm$bytes$Bytes$Decode$unsignedInt32($elm$bytes$Bytes$BE),
+		$elm$bytes$Bytes$Decode$unsignedInt32($elm$bytes$Bytes$BE)) : ((remaining > 0) ? A2(
+		$elm$bytes$Bytes$Decode$map,
+		function (_byte) {
+			return $elm$bytes$Bytes$Decode$Loop(
+				{remaining: remaining - 1, s1: s1 + _byte, s2: (s1 + _byte) + s2});
+		},
+		$elm$bytes$Bytes$Decode$unsignedInt8) : $elm$bytes$Bytes$Decode$succeed(
+		$elm$bytes$Bytes$Decode$Done(
+			{s1: s1 % $folkertdev$elm_flate$Checksum$Adler32$a32.base, s2: s2 % $folkertdev$elm_flate$Checksum$Adler32$a32.base})));
+};
+var $folkertdev$elm_flate$Checksum$Adler32$processChunk = function (config) {
+	return A2($elm$bytes$Bytes$Decode$loop, config, $folkertdev$elm_flate$Checksum$Adler32$processChunkHelp);
+};
+var $folkertdev$elm_flate$Checksum$Adler32$chunkedFold = function (_v0) {
+	var bufferSize = _v0.bufferSize;
+	var maxBlockSize = _v0.maxBlockSize;
+	var go = function (_v1) {
+		var remainingLength = _v1.remainingLength;
+		var s1 = _v1.s1;
+		var s2 = _v1.s2;
+		return (!remainingLength) ? $elm$bytes$Bytes$Decode$succeed(
+			$elm$bytes$Bytes$Decode$Done(
+				{s1: s1, s2: s2})) : ((_Utils_cmp(remainingLength, maxBlockSize) < 0) ? A2(
+			$elm$bytes$Bytes$Decode$map,
+			$elm$bytes$Bytes$Decode$Done,
+			$folkertdev$elm_flate$Checksum$Adler32$processChunk(
+				{remaining: remainingLength, s1: s1, s2: s2})) : A2(
+			$elm$bytes$Bytes$Decode$map,
+			function (result) {
+				return $elm$bytes$Bytes$Decode$Loop(
+					{remainingLength: remainingLength - maxBlockSize, s1: result.s1, s2: result.s2});
+			},
+			$folkertdev$elm_flate$Checksum$Adler32$processChunk(
+				{remaining: maxBlockSize, s1: s1, s2: s2})));
+	};
+	return A2(
+		$elm$bytes$Bytes$Decode$loop,
+		{remainingLength: bufferSize, s1: 1, s2: 0},
+		go);
+};
+var $elm$bytes$Bytes$width = _Bytes_width;
+var $folkertdev$elm_flate$Checksum$Adler32$adler32 = function (buffer) {
+	var _v0 = A2(
+		$elm$bytes$Bytes$Decode$decode,
+		$folkertdev$elm_flate$Checksum$Adler32$chunkedFold(
+			{
+				bufferSize: $elm$bytes$Bytes$width(buffer),
+				maxBlockSize: $folkertdev$elm_flate$Checksum$Adler32$a32.nmax
+			}),
+		buffer);
+	if (_v0.$ === 'Nothing') {
+		return 0;
+	} else {
+		var s1 = _v0.a.s1;
+		var s2 = _v0.a.s2;
+		return ((s2 << 16) | s1) >>> 0;
+	}
+};
+var $folkertdev$elm_flate$Inflate$BitReader$decode = F2(
+	function (bytes, _v0) {
+		var reader = _v0.a;
+		var initialState = {bitsAvailable: 0, buffer: bytes, reserve: 0, reserveAvailable: 0, tag: 0};
+		var _v1 = reader(initialState);
+		if (_v1.$ === 'Ok') {
+			var _v2 = _v1.a;
+			var value = _v2.a;
+			return $elm$core$Result$Ok(value);
+		} else {
+			var e = _v1.a;
+			return $elm$core$Result$Err(e);
+		}
+	});
+var $folkertdev$elm_flate$Experimental$ByteArray$ByteArray = F3(
+	function (a, b, c) {
+		return {$: 'ByteArray', a: a, b: b, c: c};
+	});
+var $folkertdev$elm_flate$Experimental$ByteArray$empty = A3($folkertdev$elm_flate$Experimental$ByteArray$ByteArray, $elm$core$Array$empty, 0, 0);
+var $folkertdev$elm_flate$Inflate$BitReader$BitReader = function (a) {
+	return {$: 'BitReader', a: a};
+};
+var $folkertdev$elm_flate$Inflate$BitReader$loopHelp = F3(
+	function (accum, callback, state) {
+		loopHelp:
+		while (true) {
+			var _v0 = callback(accum);
+			var decoder = _v0.a;
+			var _v1 = decoder(state);
+			if (_v1.$ === 'Err') {
+				var e = _v1.a;
+				return $elm$core$Result$Err(e);
+			} else {
+				if (_v1.a.a.$ === 'Loop') {
+					var _v2 = _v1.a;
+					var newAccum = _v2.a.a;
+					var newState = _v2.b;
+					var $temp$accum = newAccum,
+						$temp$callback = callback,
+						$temp$state = newState;
+					accum = $temp$accum;
+					callback = $temp$callback;
+					state = $temp$state;
+					continue loopHelp;
+				} else {
+					var _v3 = _v1.a;
+					var result = _v3.a.a;
+					var newState = _v3.b;
+					return $elm$core$Result$Ok(
+						_Utils_Tuple2(result, newState));
+				}
+			}
+		}
+	});
+var $folkertdev$elm_flate$Inflate$BitReader$loop = F2(
+	function (state, callback) {
+		return $folkertdev$elm_flate$Inflate$BitReader$BitReader(
+			A2($folkertdev$elm_flate$Inflate$BitReader$loopHelp, state, callback));
+	});
+var $folkertdev$elm_flate$Inflate$BitReader$map = F2(
+	function (f, _v0) {
+		var g = _v0.a;
+		return $folkertdev$elm_flate$Inflate$BitReader$BitReader(
+			function (s) {
+				var _v1 = g(s);
+				if (_v1.$ === 'Ok') {
+					var _v2 = _v1.a;
+					var value = _v2.a;
+					var newState = _v2.b;
+					return $elm$core$Result$Ok(
+						_Utils_Tuple2(
+							f(value),
+							newState));
+				} else {
+					var e = _v1.a;
+					return $elm$core$Result$Err(e);
+				}
+			});
+	});
+var $elm$core$List$singleton = function (value) {
+	return _List_fromArray(
+		[value]);
+};
+var $elm$bytes$Bytes$Encode$U16 = F2(
+	function (a, b) {
+		return {$: 'U16', a: a, b: b};
+	});
+var $elm$bytes$Bytes$Encode$unsignedInt16 = $elm$bytes$Bytes$Encode$U16;
+var $elm$bytes$Bytes$Encode$U32 = F2(
+	function (a, b) {
+		return {$: 'U32', a: a, b: b};
+	});
+var $elm$bytes$Bytes$Encode$unsignedInt32 = $elm$bytes$Bytes$Encode$U32;
+var $elm$bytes$Bytes$Encode$U8 = function (a) {
+	return {$: 'U8', a: a};
+};
+var $elm$bytes$Bytes$Encode$unsignedInt8 = $elm$bytes$Bytes$Encode$U8;
+var $folkertdev$elm_flate$Experimental$ByteArray$toBytes = function (_v0) {
+	var array = _v0.a;
+	var finalSize = _v0.b;
+	var finalBytes = _v0.c;
+	var initial = function () {
+		var finalInt32 = finalBytes >>> ((4 - finalSize) * 8);
+		switch (finalSize) {
+			case 4:
+				return _List_fromArray(
+					[
+						A2($elm$bytes$Bytes$Encode$unsignedInt32, $elm$bytes$Bytes$BE, finalBytes)
+					]);
+			case 1:
+				return _List_fromArray(
+					[
+						$elm$bytes$Bytes$Encode$unsignedInt8(finalInt32)
+					]);
+			case 2:
+				return _List_fromArray(
+					[
+						A2($elm$bytes$Bytes$Encode$unsignedInt16, $elm$bytes$Bytes$BE, finalInt32)
+					]);
+			case 3:
+				return _List_fromArray(
+					[
+						A2($elm$bytes$Bytes$Encode$unsignedInt16, $elm$bytes$Bytes$BE, finalInt32 >> 8),
+						$elm$bytes$Bytes$Encode$unsignedInt8(255 & finalInt32)
+					]);
+			default:
+				return _List_Nil;
+		}
+	}();
+	var folder = F2(
+		function (element, accum) {
+			return A2(
+				$elm$core$List$cons,
+				A2($elm$bytes$Bytes$Encode$unsignedInt32, $elm$bytes$Bytes$BE, element),
+				accum);
+		});
+	return $elm$bytes$Bytes$Encode$encode(
+		$elm$bytes$Bytes$Encode$sequence(
+			A3($elm$core$Array$foldr, folder, initial, array)));
+};
+var $folkertdev$elm_flate$Inflate$BitReader$andThen = F2(
+	function (f, _v0) {
+		var g = _v0.a;
+		return $folkertdev$elm_flate$Inflate$BitReader$BitReader(
+			function (s) {
+				var _v1 = g(s);
+				if (_v1.$ === 'Ok') {
+					var _v2 = _v1.a;
+					var value = _v2.a;
+					var newState = _v2.b;
+					var _v3 = f(value);
+					var h = _v3.a;
+					return h(newState);
+				} else {
+					var e = _v1.a;
+					return $elm$core$Result$Err(e);
+				}
+			});
+	});
+var $folkertdev$elm_flate$Experimental$ByteArray$push = F2(
+	function (value, input) {
+		var array = input.a;
+		var finalSize = input.b;
+		var finalBytes = input.c;
+		if (finalSize === 4) {
+			return A3(
+				$folkertdev$elm_flate$Experimental$ByteArray$ByteArray,
+				A2($elm$core$Array$push, finalBytes, array),
+				1,
+				value << 24);
+		} else {
+			if (!finalSize) {
+				return A3($folkertdev$elm_flate$Experimental$ByteArray$ByteArray, array, 1, value << 24);
+			} else {
+				var offset = finalSize;
+				var internalIndex = $elm$core$Array$length(array) - 1;
+				var _new = ((255 & value) << ((3 - offset) * 8)) | finalBytes;
+				var mask = 4278190080 >>> (offset * 8);
+				return A3($folkertdev$elm_flate$Experimental$ByteArray$ByteArray, array, finalSize + 1, _new);
+			}
+		}
+	});
+var $folkertdev$elm_flate$Experimental$ByteArray$pushMany = F3(
+	function (nbytes, value_, input) {
+		var array = input.a;
+		var finalSize = input.b;
+		var finalBytes = input.c;
+		var value = (nbytes === 4) ? value_ : (((1 << (nbytes * 8)) - 1) & value_);
+		if (!nbytes) {
+			return input;
+		} else {
+			if (finalSize === 4) {
+				return A3(
+					$folkertdev$elm_flate$Experimental$ByteArray$ByteArray,
+					A2($elm$core$Array$push, finalBytes, array),
+					nbytes,
+					value << ((4 - nbytes) * 8));
+			} else {
+				if (!finalSize) {
+					return A3($folkertdev$elm_flate$Experimental$ByteArray$ByteArray, array, nbytes, value << ((4 - nbytes) * 8));
+				} else {
+					var freeSpace = 4 - finalSize;
+					if (_Utils_cmp(nbytes, freeSpace) > 0) {
+						var bytesLeftOver = (finalSize + nbytes) - 4;
+						var forFinal = value >>> (bytesLeftOver * 8);
+						var newFinal = finalBytes | forFinal;
+						var amount = ((8 - finalSize) - nbytes) * 8;
+						var forNextFinal = (((1 << (bytesLeftOver * 8)) - 1) & value) << amount;
+						return A3(
+							$folkertdev$elm_flate$Experimental$ByteArray$ByteArray,
+							A2($elm$core$Array$push, newFinal, array),
+							nbytes - freeSpace,
+							forNextFinal);
+					} else {
+						var amount = (4 - (finalSize + nbytes)) * 8;
+						var forFinal = value << amount;
+						var newFinal = finalBytes | forFinal;
+						return A3($folkertdev$elm_flate$Experimental$ByteArray$ByteArray, array, finalSize + nbytes, newFinal);
+					}
+				}
+			}
+		}
+	});
+var $folkertdev$elm_flate$Experimental$ByteArray$appendBytesHelp = function (_v0) {
+	var remaining = _v0.a;
+	var bytearray = _v0.b;
+	var array = bytearray.a;
+	var finalSize = bytearray.b;
+	var finalBytes = bytearray.c;
+	return (remaining >= 4) ? A2(
+		$elm$bytes$Bytes$Decode$map,
+		function (_new) {
+			return $elm$bytes$Bytes$Decode$Loop(
+				_Utils_Tuple2(
+					remaining - 4,
+					A3($folkertdev$elm_flate$Experimental$ByteArray$pushMany, 4, _new, bytearray)));
+		},
+		$elm$bytes$Bytes$Decode$unsignedInt32($elm$bytes$Bytes$BE)) : ((remaining >= 1) ? A2(
+		$elm$bytes$Bytes$Decode$map,
+		function (_new) {
+			return $elm$bytes$Bytes$Decode$Loop(
+				_Utils_Tuple2(
+					remaining - 1,
+					A2($folkertdev$elm_flate$Experimental$ByteArray$push, _new, bytearray)));
+		},
+		$elm$bytes$Bytes$Decode$unsignedInt8) : $elm$bytes$Bytes$Decode$succeed(
+		$elm$bytes$Bytes$Decode$Done(bytearray)));
+};
+var $folkertdev$elm_flate$Experimental$ByteArray$appendBytes = F2(
+	function (bytes, barray) {
+		var array = barray.a;
+		var finalSize = barray.b;
+		var finalBytes = barray.c;
+		var decoder = A2(
+			$elm$bytes$Bytes$Decode$loop,
+			_Utils_Tuple2(
+				$elm$bytes$Bytes$width(bytes),
+				barray),
+			$folkertdev$elm_flate$Experimental$ByteArray$appendBytesHelp);
+		var _v0 = A2($elm$bytes$Bytes$Decode$decode, decoder, bytes);
+		if (_v0.$ === 'Just') {
+			var v = _v0.a;
+			return v;
+		} else {
+			return barray;
+		}
+	});
+var $elm$core$Dict$RBEmpty_elm_builtin = {$: 'RBEmpty_elm_builtin'};
+var $elm$core$Dict$empty = $elm$core$Dict$RBEmpty_elm_builtin;
+var $elm$core$Dict$foldl = F3(
+	function (func, acc, dict) {
+		foldl:
+		while (true) {
+			if (dict.$ === 'RBEmpty_elm_builtin') {
+				return acc;
+			} else {
+				var key = dict.b;
+				var value = dict.c;
+				var left = dict.d;
+				var right = dict.e;
+				var $temp$func = func,
+					$temp$acc = A3(
+					func,
+					key,
+					value,
+					A3($elm$core$Dict$foldl, func, acc, left)),
+					$temp$dict = right;
+				func = $temp$func;
+				acc = $temp$acc;
+				dict = $temp$dict;
+				continue foldl;
+			}
+		}
+	});
+var $elm$core$Basics$compare = _Utils_compare;
+var $elm$core$Dict$get = F2(
+	function (targetKey, dict) {
+		get:
+		while (true) {
+			if (dict.$ === 'RBEmpty_elm_builtin') {
+				return $elm$core$Maybe$Nothing;
+			} else {
+				var key = dict.b;
+				var value = dict.c;
+				var left = dict.d;
+				var right = dict.e;
+				var _v1 = A2($elm$core$Basics$compare, targetKey, key);
+				switch (_v1.$) {
+					case 'LT':
+						var $temp$targetKey = targetKey,
+							$temp$dict = left;
+						targetKey = $temp$targetKey;
+						dict = $temp$dict;
+						continue get;
+					case 'EQ':
+						return $elm$core$Maybe$Just(value);
+					default:
+						var $temp$targetKey = targetKey,
+							$temp$dict = right;
+						targetKey = $temp$targetKey;
+						dict = $temp$dict;
+						continue get;
+				}
+			}
+		}
+	});
+var $elm$core$Dict$Black = {$: 'Black'};
+var $elm$core$Dict$RBNode_elm_builtin = F5(
+	function (a, b, c, d, e) {
+		return {$: 'RBNode_elm_builtin', a: a, b: b, c: c, d: d, e: e};
+	});
+var $elm$core$Dict$Red = {$: 'Red'};
+var $elm$core$Dict$balance = F5(
+	function (color, key, value, left, right) {
+		if ((right.$ === 'RBNode_elm_builtin') && (right.a.$ === 'Red')) {
+			var _v1 = right.a;
+			var rK = right.b;
+			var rV = right.c;
+			var rLeft = right.d;
+			var rRight = right.e;
+			if ((left.$ === 'RBNode_elm_builtin') && (left.a.$ === 'Red')) {
+				var _v3 = left.a;
+				var lK = left.b;
+				var lV = left.c;
+				var lLeft = left.d;
+				var lRight = left.e;
+				return A5(
+					$elm$core$Dict$RBNode_elm_builtin,
+					$elm$core$Dict$Red,
+					key,
+					value,
+					A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Black, lK, lV, lLeft, lRight),
+					A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Black, rK, rV, rLeft, rRight));
+			} else {
+				return A5(
+					$elm$core$Dict$RBNode_elm_builtin,
+					color,
+					rK,
+					rV,
+					A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Red, key, value, left, rLeft),
+					rRight);
+			}
+		} else {
+			if ((((left.$ === 'RBNode_elm_builtin') && (left.a.$ === 'Red')) && (left.d.$ === 'RBNode_elm_builtin')) && (left.d.a.$ === 'Red')) {
+				var _v5 = left.a;
+				var lK = left.b;
+				var lV = left.c;
+				var _v6 = left.d;
+				var _v7 = _v6.a;
+				var llK = _v6.b;
+				var llV = _v6.c;
+				var llLeft = _v6.d;
+				var llRight = _v6.e;
+				var lRight = left.e;
+				return A5(
+					$elm$core$Dict$RBNode_elm_builtin,
+					$elm$core$Dict$Red,
+					lK,
+					lV,
+					A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Black, llK, llV, llLeft, llRight),
+					A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Black, key, value, lRight, right));
+			} else {
+				return A5($elm$core$Dict$RBNode_elm_builtin, color, key, value, left, right);
+			}
+		}
+	});
+var $elm$core$Dict$insertHelp = F3(
+	function (key, value, dict) {
+		if (dict.$ === 'RBEmpty_elm_builtin') {
+			return A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Red, key, value, $elm$core$Dict$RBEmpty_elm_builtin, $elm$core$Dict$RBEmpty_elm_builtin);
+		} else {
+			var nColor = dict.a;
+			var nKey = dict.b;
+			var nValue = dict.c;
+			var nLeft = dict.d;
+			var nRight = dict.e;
+			var _v1 = A2($elm$core$Basics$compare, key, nKey);
+			switch (_v1.$) {
+				case 'LT':
+					return A5(
+						$elm$core$Dict$balance,
+						nColor,
+						nKey,
+						nValue,
+						A3($elm$core$Dict$insertHelp, key, value, nLeft),
+						nRight);
+				case 'EQ':
+					return A5($elm$core$Dict$RBNode_elm_builtin, nColor, nKey, value, nLeft, nRight);
+				default:
+					return A5(
+						$elm$core$Dict$balance,
+						nColor,
+						nKey,
+						nValue,
+						nLeft,
+						A3($elm$core$Dict$insertHelp, key, value, nRight));
+			}
+		}
+	});
+var $elm$core$Dict$insert = F3(
+	function (key, value, dict) {
+		var _v0 = A3($elm$core$Dict$insertHelp, key, value, dict);
+		if ((_v0.$ === 'RBNode_elm_builtin') && (_v0.a.$ === 'Red')) {
+			var _v1 = _v0.a;
+			var k = _v0.b;
+			var v = _v0.c;
+			var l = _v0.d;
+			var r = _v0.e;
+			return A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Black, k, v, l, r);
+		} else {
+			var x = _v0;
+			return x;
+		}
+	});
+var $elm$core$Basics$neq = _Utils_notEqual;
+var $elm$core$Array$repeat = F2(
+	function (n, e) {
+		return A2(
+			$elm$core$Array$initialize,
+			n,
+			function (_v0) {
+				return e;
+			});
+	});
+var $elm$core$Tuple$second = function (_v0) {
+	var y = _v0.b;
+	return y;
+};
+var $elm$core$Dict$getMin = function (dict) {
+	getMin:
+	while (true) {
+		if ((dict.$ === 'RBNode_elm_builtin') && (dict.d.$ === 'RBNode_elm_builtin')) {
+			var left = dict.d;
+			var $temp$dict = left;
+			dict = $temp$dict;
+			continue getMin;
+		} else {
+			return dict;
+		}
+	}
+};
+var $elm$core$Dict$moveRedLeft = function (dict) {
+	if (((dict.$ === 'RBNode_elm_builtin') && (dict.d.$ === 'RBNode_elm_builtin')) && (dict.e.$ === 'RBNode_elm_builtin')) {
+		if ((dict.e.d.$ === 'RBNode_elm_builtin') && (dict.e.d.a.$ === 'Red')) {
+			var clr = dict.a;
+			var k = dict.b;
+			var v = dict.c;
+			var _v1 = dict.d;
+			var lClr = _v1.a;
+			var lK = _v1.b;
+			var lV = _v1.c;
+			var lLeft = _v1.d;
+			var lRight = _v1.e;
+			var _v2 = dict.e;
+			var rClr = _v2.a;
+			var rK = _v2.b;
+			var rV = _v2.c;
+			var rLeft = _v2.d;
+			var _v3 = rLeft.a;
+			var rlK = rLeft.b;
+			var rlV = rLeft.c;
+			var rlL = rLeft.d;
+			var rlR = rLeft.e;
+			var rRight = _v2.e;
+			return A5(
+				$elm$core$Dict$RBNode_elm_builtin,
+				$elm$core$Dict$Red,
+				rlK,
+				rlV,
+				A5(
+					$elm$core$Dict$RBNode_elm_builtin,
+					$elm$core$Dict$Black,
+					k,
+					v,
+					A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Red, lK, lV, lLeft, lRight),
+					rlL),
+				A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Black, rK, rV, rlR, rRight));
+		} else {
+			var clr = dict.a;
+			var k = dict.b;
+			var v = dict.c;
+			var _v4 = dict.d;
+			var lClr = _v4.a;
+			var lK = _v4.b;
+			var lV = _v4.c;
+			var lLeft = _v4.d;
+			var lRight = _v4.e;
+			var _v5 = dict.e;
+			var rClr = _v5.a;
+			var rK = _v5.b;
+			var rV = _v5.c;
+			var rLeft = _v5.d;
+			var rRight = _v5.e;
+			if (clr.$ === 'Black') {
+				return A5(
+					$elm$core$Dict$RBNode_elm_builtin,
+					$elm$core$Dict$Black,
+					k,
+					v,
+					A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Red, lK, lV, lLeft, lRight),
+					A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Red, rK, rV, rLeft, rRight));
+			} else {
+				return A5(
+					$elm$core$Dict$RBNode_elm_builtin,
+					$elm$core$Dict$Black,
+					k,
+					v,
+					A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Red, lK, lV, lLeft, lRight),
+					A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Red, rK, rV, rLeft, rRight));
+			}
+		}
+	} else {
+		return dict;
+	}
+};
+var $elm$core$Dict$moveRedRight = function (dict) {
+	if (((dict.$ === 'RBNode_elm_builtin') && (dict.d.$ === 'RBNode_elm_builtin')) && (dict.e.$ === 'RBNode_elm_builtin')) {
+		if ((dict.d.d.$ === 'RBNode_elm_builtin') && (dict.d.d.a.$ === 'Red')) {
+			var clr = dict.a;
+			var k = dict.b;
+			var v = dict.c;
+			var _v1 = dict.d;
+			var lClr = _v1.a;
+			var lK = _v1.b;
+			var lV = _v1.c;
+			var _v2 = _v1.d;
+			var _v3 = _v2.a;
+			var llK = _v2.b;
+			var llV = _v2.c;
+			var llLeft = _v2.d;
+			var llRight = _v2.e;
+			var lRight = _v1.e;
+			var _v4 = dict.e;
+			var rClr = _v4.a;
+			var rK = _v4.b;
+			var rV = _v4.c;
+			var rLeft = _v4.d;
+			var rRight = _v4.e;
+			return A5(
+				$elm$core$Dict$RBNode_elm_builtin,
+				$elm$core$Dict$Red,
+				lK,
+				lV,
+				A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Black, llK, llV, llLeft, llRight),
+				A5(
+					$elm$core$Dict$RBNode_elm_builtin,
+					$elm$core$Dict$Black,
+					k,
+					v,
+					lRight,
+					A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Red, rK, rV, rLeft, rRight)));
+		} else {
+			var clr = dict.a;
+			var k = dict.b;
+			var v = dict.c;
+			var _v5 = dict.d;
+			var lClr = _v5.a;
+			var lK = _v5.b;
+			var lV = _v5.c;
+			var lLeft = _v5.d;
+			var lRight = _v5.e;
+			var _v6 = dict.e;
+			var rClr = _v6.a;
+			var rK = _v6.b;
+			var rV = _v6.c;
+			var rLeft = _v6.d;
+			var rRight = _v6.e;
+			if (clr.$ === 'Black') {
+				return A5(
+					$elm$core$Dict$RBNode_elm_builtin,
+					$elm$core$Dict$Black,
+					k,
+					v,
+					A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Red, lK, lV, lLeft, lRight),
+					A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Red, rK, rV, rLeft, rRight));
+			} else {
+				return A5(
+					$elm$core$Dict$RBNode_elm_builtin,
+					$elm$core$Dict$Black,
+					k,
+					v,
+					A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Red, lK, lV, lLeft, lRight),
+					A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Red, rK, rV, rLeft, rRight));
+			}
+		}
+	} else {
+		return dict;
+	}
+};
+var $elm$core$Dict$removeHelpPrepEQGT = F7(
+	function (targetKey, dict, color, key, value, left, right) {
+		if ((left.$ === 'RBNode_elm_builtin') && (left.a.$ === 'Red')) {
+			var _v1 = left.a;
+			var lK = left.b;
+			var lV = left.c;
+			var lLeft = left.d;
+			var lRight = left.e;
+			return A5(
+				$elm$core$Dict$RBNode_elm_builtin,
+				color,
+				lK,
+				lV,
+				lLeft,
+				A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Red, key, value, lRight, right));
+		} else {
+			_v2$2:
+			while (true) {
+				if ((right.$ === 'RBNode_elm_builtin') && (right.a.$ === 'Black')) {
+					if (right.d.$ === 'RBNode_elm_builtin') {
+						if (right.d.a.$ === 'Black') {
+							var _v3 = right.a;
+							var _v4 = right.d;
+							var _v5 = _v4.a;
+							return $elm$core$Dict$moveRedRight(dict);
+						} else {
+							break _v2$2;
+						}
+					} else {
+						var _v6 = right.a;
+						var _v7 = right.d;
+						return $elm$core$Dict$moveRedRight(dict);
+					}
+				} else {
+					break _v2$2;
+				}
+			}
+			return dict;
+		}
+	});
+var $elm$core$Dict$removeMin = function (dict) {
+	if ((dict.$ === 'RBNode_elm_builtin') && (dict.d.$ === 'RBNode_elm_builtin')) {
+		var color = dict.a;
+		var key = dict.b;
+		var value = dict.c;
+		var left = dict.d;
+		var lColor = left.a;
+		var lLeft = left.d;
+		var right = dict.e;
+		if (lColor.$ === 'Black') {
+			if ((lLeft.$ === 'RBNode_elm_builtin') && (lLeft.a.$ === 'Red')) {
+				var _v3 = lLeft.a;
+				return A5(
+					$elm$core$Dict$RBNode_elm_builtin,
+					color,
+					key,
+					value,
+					$elm$core$Dict$removeMin(left),
+					right);
+			} else {
+				var _v4 = $elm$core$Dict$moveRedLeft(dict);
+				if (_v4.$ === 'RBNode_elm_builtin') {
+					var nColor = _v4.a;
+					var nKey = _v4.b;
+					var nValue = _v4.c;
+					var nLeft = _v4.d;
+					var nRight = _v4.e;
+					return A5(
+						$elm$core$Dict$balance,
+						nColor,
+						nKey,
+						nValue,
+						$elm$core$Dict$removeMin(nLeft),
+						nRight);
+				} else {
+					return $elm$core$Dict$RBEmpty_elm_builtin;
+				}
+			}
+		} else {
+			return A5(
+				$elm$core$Dict$RBNode_elm_builtin,
+				color,
+				key,
+				value,
+				$elm$core$Dict$removeMin(left),
+				right);
+		}
+	} else {
+		return $elm$core$Dict$RBEmpty_elm_builtin;
+	}
+};
+var $elm$core$Dict$removeHelp = F2(
+	function (targetKey, dict) {
+		if (dict.$ === 'RBEmpty_elm_builtin') {
+			return $elm$core$Dict$RBEmpty_elm_builtin;
+		} else {
+			var color = dict.a;
+			var key = dict.b;
+			var value = dict.c;
+			var left = dict.d;
+			var right = dict.e;
+			if (_Utils_cmp(targetKey, key) < 0) {
+				if ((left.$ === 'RBNode_elm_builtin') && (left.a.$ === 'Black')) {
+					var _v4 = left.a;
+					var lLeft = left.d;
+					if ((lLeft.$ === 'RBNode_elm_builtin') && (lLeft.a.$ === 'Red')) {
+						var _v6 = lLeft.a;
+						return A5(
+							$elm$core$Dict$RBNode_elm_builtin,
+							color,
+							key,
+							value,
+							A2($elm$core$Dict$removeHelp, targetKey, left),
+							right);
+					} else {
+						var _v7 = $elm$core$Dict$moveRedLeft(dict);
+						if (_v7.$ === 'RBNode_elm_builtin') {
+							var nColor = _v7.a;
+							var nKey = _v7.b;
+							var nValue = _v7.c;
+							var nLeft = _v7.d;
+							var nRight = _v7.e;
+							return A5(
+								$elm$core$Dict$balance,
+								nColor,
+								nKey,
+								nValue,
+								A2($elm$core$Dict$removeHelp, targetKey, nLeft),
+								nRight);
+						} else {
+							return $elm$core$Dict$RBEmpty_elm_builtin;
+						}
+					}
+				} else {
+					return A5(
+						$elm$core$Dict$RBNode_elm_builtin,
+						color,
+						key,
+						value,
+						A2($elm$core$Dict$removeHelp, targetKey, left),
+						right);
+				}
+			} else {
+				return A2(
+					$elm$core$Dict$removeHelpEQGT,
+					targetKey,
+					A7($elm$core$Dict$removeHelpPrepEQGT, targetKey, dict, color, key, value, left, right));
+			}
+		}
+	});
+var $elm$core$Dict$removeHelpEQGT = F2(
+	function (targetKey, dict) {
+		if (dict.$ === 'RBNode_elm_builtin') {
+			var color = dict.a;
+			var key = dict.b;
+			var value = dict.c;
+			var left = dict.d;
+			var right = dict.e;
+			if (_Utils_eq(targetKey, key)) {
+				var _v1 = $elm$core$Dict$getMin(right);
+				if (_v1.$ === 'RBNode_elm_builtin') {
+					var minKey = _v1.b;
+					var minValue = _v1.c;
+					return A5(
+						$elm$core$Dict$balance,
+						color,
+						minKey,
+						minValue,
+						left,
+						$elm$core$Dict$removeMin(right));
+				} else {
+					return $elm$core$Dict$RBEmpty_elm_builtin;
+				}
+			} else {
+				return A5(
+					$elm$core$Dict$balance,
+					color,
+					key,
+					value,
+					left,
+					A2($elm$core$Dict$removeHelp, targetKey, right));
+			}
+		} else {
+			return $elm$core$Dict$RBEmpty_elm_builtin;
+		}
+	});
+var $elm$core$Dict$remove = F2(
+	function (key, dict) {
+		var _v0 = A2($elm$core$Dict$removeHelp, key, dict);
+		if ((_v0.$ === 'RBNode_elm_builtin') && (_v0.a.$ === 'Red')) {
+			var _v1 = _v0.a;
+			var k = _v0.b;
+			var v = _v0.c;
+			var l = _v0.d;
+			var r = _v0.e;
+			return A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Black, k, v, l, r);
+		} else {
+			var x = _v0;
+			return x;
+		}
+	});
+var $elm$core$Dict$update = F3(
+	function (targetKey, alter, dictionary) {
+		var _v0 = alter(
+			A2($elm$core$Dict$get, targetKey, dictionary));
+		if (_v0.$ === 'Just') {
+			var value = _v0.a;
+			return A3($elm$core$Dict$insert, targetKey, value, dictionary);
+		} else {
+			return A2($elm$core$Dict$remove, targetKey, dictionary);
+		}
+	});
+var $folkertdev$elm_flate$Inflate$Internal$buildTree = F3(
+	function (lengths, offset, num) {
+		var tableDict = function () {
+			var updater = function (maybeValue) {
+				if (maybeValue.$ === 'Nothing') {
+					return $elm$core$Maybe$Just(1);
+				} else {
+					var v = maybeValue.a;
+					return $elm$core$Maybe$Just(v + 1);
+				}
+			};
+			var folder = F3(
+				function (key, value, accum) {
+					return ((_Utils_cmp(key, offset) > -1) && (_Utils_cmp(key, num + offset) < 0)) ? A3($elm$core$Dict$update, value, updater, accum) : accum;
+				});
+			return A3($elm$core$Dict$foldl, folder, $elm$core$Dict$empty, lengths);
+		}();
+		var offsetsDict = A3(
+			$elm$core$Dict$foldl,
+			F3(
+				function (key, value, _v4) {
+					var sum = _v4.a;
+					var dict = _v4.b;
+					return _Utils_Tuple2(
+						sum + value,
+						A3($elm$core$Dict$insert, key, sum, dict));
+				}),
+			_Utils_Tuple2(0, $elm$core$Dict$empty),
+			tableDict);
+		var newTable = function () {
+			var helper = F4(
+				function (key, value, i, array) {
+					helper:
+					while (true) {
+						if (_Utils_cmp(i, key) > 0) {
+							var $temp$key = key,
+								$temp$value = value,
+								$temp$i = i - 1,
+								$temp$array = A2($elm$core$List$cons, 0, array);
+							key = $temp$key;
+							value = $temp$value;
+							i = $temp$i;
+							array = $temp$array;
+							continue helper;
+						} else {
+							return A2($elm$core$List$cons, value, array);
+						}
+					}
+				});
+			var foldHelp = F3(
+				function (key, value, _v3) {
+					var i = _v3.a;
+					var array = _v3.b;
+					return _Utils_Tuple2(
+						key - 1,
+						A4(helper, key, value, i, array));
+				});
+			var anotherGo = F2(
+				function (i, array) {
+					anotherGo:
+					while (true) {
+						if (i >= 0) {
+							var $temp$i = i - 1,
+								$temp$array = A2($elm$core$List$cons, 0, array);
+							i = $temp$i;
+							array = $temp$array;
+							continue anotherGo;
+						} else {
+							return array;
+						}
+					}
+				});
+			return function (_v2) {
+				var a = _v2.a;
+				var b = _v2.b;
+				return A2(anotherGo, a, b);
+			}(
+				A3(
+					$elm$core$Dict$foldr,
+					foldHelp,
+					_Utils_Tuple2(15, _List_Nil),
+					tableDict));
+		}();
+		var go2 = F3(
+			function (i, currentTranslation, currentOffsets) {
+				go2:
+				while (true) {
+					if ((i - num) < 0) {
+						var _v0 = A2($elm$core$Dict$get, offset + i, lengths);
+						if (_v0.$ === 'Nothing') {
+							var $temp$i = i + 1,
+								$temp$currentTranslation = currentTranslation,
+								$temp$currentOffsets = currentOffsets;
+							i = $temp$i;
+							currentTranslation = $temp$currentTranslation;
+							currentOffsets = $temp$currentOffsets;
+							continue go2;
+						} else {
+							var v = _v0.a;
+							if (!(!v)) {
+								var _v1 = A2($elm$core$Dict$get, v, currentOffsets);
+								if (_v1.$ === 'Nothing') {
+									return currentTranslation;
+								} else {
+									var w = _v1.a;
+									var $temp$i = i + 1,
+										$temp$currentTranslation = A3($elm$core$Array$set, w, i, currentTranslation),
+										$temp$currentOffsets = A3($elm$core$Dict$insert, v, w + 1, currentOffsets);
+									i = $temp$i;
+									currentTranslation = $temp$currentTranslation;
+									currentOffsets = $temp$currentOffsets;
+									continue go2;
+								}
+							} else {
+								var $temp$i = i + 1,
+									$temp$currentTranslation = currentTranslation,
+									$temp$currentOffsets = currentOffsets;
+								i = $temp$i;
+								currentTranslation = $temp$currentTranslation;
+								currentOffsets = $temp$currentOffsets;
+								continue go2;
+							}
+						}
+					} else {
+						return currentTranslation;
+					}
+				}
+			});
+		var translation2 = A3(
+			go2,
+			0,
+			A2($elm$core$Array$repeat, num, 0),
+			offsetsDict.b);
+		return {table: newTable, trans: translation2};
+	});
+var $folkertdev$elm_flate$Inflate$Internal$clcIndices = _List_fromArray(
+	[16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]);
+var $folkertdev$elm_flate$Inflate$BitSet$BitSet320 = function (a) {
+	return function (b) {
+		return function (c) {
+			return function (d) {
+				return function (e) {
+					return function (f) {
+						return function (g) {
+							return function (h) {
+								return function (i) {
+									return function (j) {
+										return {$: 'BitSet320', a: a, b: b, c: c, d: d, e: e, f: f, g: g, h: h, i: i, j: j};
+									};
+								};
+							};
+						};
+					};
+				};
+			};
+		};
+	};
+};
+var $folkertdev$elm_flate$Inflate$BitSet$insert = F2(
+	function (n, input) {
+		var b1 = input.a;
+		var b2 = input.b;
+		var b3 = input.c;
+		var b4 = input.d;
+		var b5 = input.e;
+		var b6 = input.f;
+		var b7 = input.g;
+		var b8 = input.h;
+		var b9 = input.i;
+		var b10 = input.j;
+		if (n >= 320) {
+			return input;
+		} else {
+			var bit = 1 << (n % 32);
+			var _v0 = (n / 32) | 0;
+			switch (_v0) {
+				case 0:
+					return $folkertdev$elm_flate$Inflate$BitSet$BitSet320(bit | b1)(b2)(b3)(b4)(b5)(b6)(b7)(b8)(b9)(b10);
+				case 1:
+					return $folkertdev$elm_flate$Inflate$BitSet$BitSet320(b1)(bit | b2)(b3)(b4)(b5)(b6)(b7)(b8)(b9)(b10);
+				case 2:
+					return $folkertdev$elm_flate$Inflate$BitSet$BitSet320(b1)(b2)(bit | b3)(b4)(b5)(b6)(b7)(b8)(b9)(b10);
+				case 3:
+					return $folkertdev$elm_flate$Inflate$BitSet$BitSet320(b1)(b2)(b3)(bit | b4)(b5)(b6)(b7)(b8)(b9)(b10);
+				case 4:
+					return $folkertdev$elm_flate$Inflate$BitSet$BitSet320(b1)(b2)(b3)(b4)(bit | b5)(b6)(b7)(b8)(b9)(b10);
+				case 5:
+					return $folkertdev$elm_flate$Inflate$BitSet$BitSet320(b1)(b2)(b3)(b4)(b5)(bit | b6)(b7)(b8)(b9)(b10);
+				case 6:
+					return $folkertdev$elm_flate$Inflate$BitSet$BitSet320(b1)(b2)(b3)(b4)(b5)(b6)(bit | b7)(b8)(b9)(b10);
+				case 7:
+					return $folkertdev$elm_flate$Inflate$BitSet$BitSet320(b1)(b2)(b3)(b4)(b5)(b6)(b7)(bit | b8)(b9)(b10);
+				case 8:
+					return $folkertdev$elm_flate$Inflate$BitSet$BitSet320(b1)(b2)(b3)(b4)(b5)(b6)(b7)(b8)(bit | b9)(b10);
+				case 9:
+					return $folkertdev$elm_flate$Inflate$BitSet$BitSet320(b1)(b2)(b3)(b4)(b5)(b6)(b7)(b8)(b9)(bit | b10);
+				default:
+					return input;
+			}
+		}
+	});
+var $folkertdev$elm_flate$Inflate$BitSet$member = F2(
+	function (n, input) {
+		var b1 = input.a;
+		var b2 = input.b;
+		var b3 = input.c;
+		var b4 = input.d;
+		var b5 = input.e;
+		var b6 = input.f;
+		var b7 = input.g;
+		var b8 = input.h;
+		var b9 = input.i;
+		var b10 = input.j;
+		if (n >= 320) {
+			return false;
+		} else {
+			var bit = 1 << (n % 32);
+			var _v0 = (n / 32) | 0;
+			switch (_v0) {
+				case 0:
+					return (bit & b1) > 0;
+				case 1:
+					return (bit & b2) > 0;
+				case 2:
+					return (bit & b3) > 0;
+				case 3:
+					return (bit & b4) > 0;
+				case 4:
+					return (bit & b5) > 0;
+				case 5:
+					return (bit & b6) > 0;
+				case 6:
+					return (bit & b7) > 0;
+				case 7:
+					return (bit & b8) > 0;
+				case 8:
+					return (bit & b9) > 0;
+				case 9:
+					return (bit & b10) > 0;
+				default:
+					return false;
+			}
+		}
+	});
+var $elm$core$Bitwise$complement = _Bitwise_complement;
+var $folkertdev$elm_flate$Inflate$BitSet$remove = F2(
+	function (n, input) {
+		var b1 = input.a;
+		var b2 = input.b;
+		var b3 = input.c;
+		var b4 = input.d;
+		var b5 = input.e;
+		var b6 = input.f;
+		var b7 = input.g;
+		var b8 = input.h;
+		var b9 = input.i;
+		var b10 = input.j;
+		if (n >= 320) {
+			return input;
+		} else {
+			var bit = ~(1 << (n % 32));
+			var _v0 = (n / 32) | 0;
+			switch (_v0) {
+				case 0:
+					return $folkertdev$elm_flate$Inflate$BitSet$BitSet320(bit & b1)(b2)(b3)(b4)(b5)(b6)(b7)(b8)(b9)(b10);
+				case 1:
+					return $folkertdev$elm_flate$Inflate$BitSet$BitSet320(b1)(bit & b2)(b3)(b4)(b5)(b6)(b7)(b8)(b9)(b10);
+				case 2:
+					return $folkertdev$elm_flate$Inflate$BitSet$BitSet320(b1)(b2)(bit & b3)(b4)(b5)(b6)(b7)(b8)(b9)(b10);
+				case 3:
+					return $folkertdev$elm_flate$Inflate$BitSet$BitSet320(b1)(b2)(b3)(bit & b4)(b5)(b6)(b7)(b8)(b9)(b10);
+				case 4:
+					return $folkertdev$elm_flate$Inflate$BitSet$BitSet320(b1)(b2)(b3)(b4)(bit & b5)(b6)(b7)(b8)(b9)(b10);
+				case 5:
+					return $folkertdev$elm_flate$Inflate$BitSet$BitSet320(b1)(b2)(b3)(b4)(b5)(bit & b6)(b7)(b8)(b9)(b10);
+				case 6:
+					return $folkertdev$elm_flate$Inflate$BitSet$BitSet320(b1)(b2)(b3)(b4)(b5)(b6)(bit & b7)(b8)(b9)(b10);
+				case 7:
+					return $folkertdev$elm_flate$Inflate$BitSet$BitSet320(b1)(b2)(b3)(b4)(b5)(b6)(b7)(bit & b8)(b9)(b10);
+				case 8:
+					return $folkertdev$elm_flate$Inflate$BitSet$BitSet320(b1)(b2)(b3)(b4)(b5)(b6)(b7)(b8)(bit & b9)(b10);
+				case 9:
+					return $folkertdev$elm_flate$Inflate$BitSet$BitSet320(b1)(b2)(b3)(b4)(b5)(b6)(b7)(b8)(b9)(bit & b10);
+				default:
+					return input;
+			}
+		}
+	});
+var $folkertdev$elm_flate$Inflate$Internal$copySegment = F5(
+	function (i, value, bitset, lengths, length) {
+		var end = i + length;
+		var go = F3(
+			function (j, currentBitSet, accum) {
+				go:
+				while (true) {
+					if ((j - end) < 0) {
+						if (!(!value)) {
+							var $temp$j = j + 1,
+								$temp$currentBitSet = A2($folkertdev$elm_flate$Inflate$BitSet$insert, j, currentBitSet),
+								$temp$accum = A3($elm$core$Dict$insert, j, value, accum);
+							j = $temp$j;
+							currentBitSet = $temp$currentBitSet;
+							accum = $temp$accum;
+							continue go;
+						} else {
+							if (A2($folkertdev$elm_flate$Inflate$BitSet$member, j, currentBitSet)) {
+								var $temp$j = j + 1,
+									$temp$currentBitSet = A2($folkertdev$elm_flate$Inflate$BitSet$remove, j, currentBitSet),
+									$temp$accum = A2($elm$core$Dict$remove, j, accum);
+								j = $temp$j;
+								currentBitSet = $temp$currentBitSet;
+								accum = $temp$accum;
+								continue go;
+							} else {
+								var $temp$j = j + 1,
+									$temp$currentBitSet = currentBitSet,
+									$temp$accum = accum;
+								j = $temp$j;
+								currentBitSet = $temp$currentBitSet;
+								accum = $temp$accum;
+								continue go;
+							}
+						}
+					} else {
+						return _Utils_Tuple2(currentBitSet, accum);
+					}
+				}
+			});
+		var _v0 = A3(go, i, bitset, lengths);
+		var newBitSet = _v0.a;
+		var newLengths = _v0.b;
+		return _Utils_Tuple3(i + length, newBitSet, newLengths);
+	});
+var $folkertdev$elm_flate$Inflate$Internal$decodeSymbolInnerLoop = F5(
+	function (table, cur, tag, bitsAvailable, sum) {
+		decodeSymbolInnerLoop:
+		while (true) {
+			var newTag = tag >>> 1;
+			if (!table.b) {
+				return {bitsAvailable: bitsAvailable, cur: cur, sum: sum, tag: tag};
+			} else {
+				var value = table.a;
+				var rest = table.b;
+				var newerCur = ((cur << 1) + (tag & 1)) - value;
+				var newSum = sum + value;
+				if (newerCur >= 0) {
+					var $temp$table = rest,
+						$temp$cur = newerCur,
+						$temp$tag = newTag,
+						$temp$bitsAvailable = bitsAvailable - 1,
+						$temp$sum = newSum;
+					table = $temp$table;
+					cur = $temp$cur;
+					tag = $temp$tag;
+					bitsAvailable = $temp$bitsAvailable;
+					sum = $temp$sum;
+					continue decodeSymbolInnerLoop;
+				} else {
+					return {bitsAvailable: bitsAvailable - 1, cur: newerCur, sum: newSum, tag: newTag};
+				}
+			}
+		}
+	});
+var $folkertdev$elm_flate$Inflate$BitReader$moveFromReserve = F2(
+	function (nbits, state) {
+		var masked = (nbits === 32) ? (state.reserve << state.bitsAvailable) : ((((1 << nbits) - 1) & state.reserve) << state.bitsAvailable);
+		return {bitsAvailable: state.bitsAvailable + nbits, buffer: state.buffer, reserve: state.reserve >>> nbits, reserveAvailable: state.reserveAvailable - nbits, tag: masked | state.tag};
+	});
+var $elm$core$Tuple$pair = F2(
+	function (a, b) {
+		return _Utils_Tuple2(a, b);
+	});
+var $folkertdev$elm_flate$Inflate$BitReader$runDecoder = F3(
+	function (width, valueDecoder, state) {
+		var decoder = A3(
+			$elm$bytes$Bytes$Decode$map2,
+			$elm$core$Tuple$pair,
+			valueDecoder,
+			$elm$bytes$Bytes$Decode$bytes(
+				$elm$bytes$Bytes$width(state.buffer) - width));
+		var _v0 = A2($elm$bytes$Bytes$Decode$decode, decoder, state.buffer);
+		if (_v0.$ === 'Just') {
+			var value = _v0.a;
+			return $elm$core$Result$Ok(value);
+		} else {
+			return $elm$core$Result$Err('BitReader.runDecoder: Unexpected end of Bytes');
+		}
+	});
+var $folkertdev$elm_flate$Inflate$BitReader$unsignedInt24 = function (endianness) {
+	if (endianness.$ === 'LE') {
+		return A3(
+			$elm$bytes$Bytes$Decode$map2,
+			F2(
+				function (b2, b1) {
+					return (b1 << 16) | b2;
+				}),
+			$elm$bytes$Bytes$Decode$unsignedInt16(endianness),
+			$elm$bytes$Bytes$Decode$unsignedInt8);
+	} else {
+		return A3(
+			$elm$bytes$Bytes$Decode$map2,
+			F2(
+				function (b1, b2) {
+					return (b1 << 16) | b2;
+				}),
+			$elm$bytes$Bytes$Decode$unsignedInt16(endianness),
+			$elm$bytes$Bytes$Decode$unsignedInt8);
+	}
+};
+var $folkertdev$elm_flate$Inflate$BitReader$readMoreBits = function (state) {
+	readMoreBits:
+	while (true) {
+		var freeSpaceOnTag = 32 - state.bitsAvailable;
+		if ((_Utils_cmp(freeSpaceOnTag, state.reserveAvailable) < 1) && (state.reserveAvailable > 0)) {
+			return $elm$core$Result$Ok(
+				A2($folkertdev$elm_flate$Inflate$BitReader$moveFromReserve, freeSpaceOnTag, state));
+		} else {
+			if (!$elm$bytes$Bytes$width(state.buffer)) {
+				return $elm$core$Result$Ok(
+					A2($folkertdev$elm_flate$Inflate$BitReader$moveFromReserve, state.reserveAvailable, state));
+			} else {
+				var state1 = A2($folkertdev$elm_flate$Inflate$BitReader$moveFromReserve, state.reserveAvailable, state);
+				var _v0 = function () {
+					var _v1 = $elm$bytes$Bytes$width(state.buffer);
+					switch (_v1) {
+						case 0:
+							return _Utils_Tuple3(
+								0,
+								0,
+								$elm$bytes$Bytes$Decode$succeed(0));
+						case 1:
+							return _Utils_Tuple3(1, 8, $elm$bytes$Bytes$Decode$unsignedInt8);
+						case 2:
+							return _Utils_Tuple3(
+								2,
+								16,
+								$elm$bytes$Bytes$Decode$unsignedInt16($elm$bytes$Bytes$LE));
+						case 3:
+							return _Utils_Tuple3(
+								3,
+								24,
+								$folkertdev$elm_flate$Inflate$BitReader$unsignedInt24($elm$bytes$Bytes$LE));
+						default:
+							return _Utils_Tuple3(
+								4,
+								32,
+								$elm$bytes$Bytes$Decode$unsignedInt32($elm$bytes$Bytes$LE));
+					}
+				}();
+				var width = _v0.a;
+				var additionallyAvailable = _v0.b;
+				var decoder = _v0.c;
+				var _v2 = A3($folkertdev$elm_flate$Inflate$BitReader$runDecoder, width, decoder, state1);
+				if (_v2.$ === 'Err') {
+					var e = _v2.a;
+					return $elm$core$Result$Err(e);
+				} else {
+					var _v3 = _v2.a;
+					var newReserve = _v3.a;
+					var newBuffer = _v3.b;
+					var $temp$state = {bitsAvailable: state1.bitsAvailable, buffer: newBuffer, reserve: newReserve, reserveAvailable: additionallyAvailable, tag: state1.tag};
+					state = $temp$state;
+					continue readMoreBits;
+				}
+			}
+		}
+	}
+};
+var $folkertdev$elm_flate$Inflate$Internal$decodeSymbol = F2(
+	function (table, tree) {
+		return $folkertdev$elm_flate$Inflate$BitReader$BitReader(
+			function (state) {
+				var _v0 = (state.bitsAvailable < 16) ? $folkertdev$elm_flate$Inflate$BitReader$readMoreBits(state) : $elm$core$Result$Ok(state);
+				if (_v0.$ === 'Err') {
+					var e = _v0.a;
+					return $elm$core$Result$Err(e);
+				} else {
+					var d = _v0.a;
+					var _v1 = A5($folkertdev$elm_flate$Inflate$Internal$decodeSymbolInnerLoop, table, 0, d.tag, d.bitsAvailable, 0);
+					var cur = _v1.cur;
+					var tag = _v1.tag;
+					var bitsAvailable = _v1.bitsAvailable;
+					var sum = _v1.sum;
+					var _v2 = A2($elm$core$Array$get, sum + cur, tree.trans);
+					if (_v2.$ === 'Nothing') {
+						return $elm$core$Result$Err('Index into trans tree out of bounds');
+					} else {
+						var result = _v2.a;
+						return $elm$core$Result$Ok(
+							_Utils_Tuple2(
+								result,
+								{bitsAvailable: bitsAvailable, buffer: d.buffer, reserve: d.reserve, reserveAvailable: d.reserveAvailable, tag: tag}));
+					}
+				}
+			});
+	});
+var $folkertdev$elm_flate$Inflate$BitReader$readBits = F2(
+	function (numberOfBits, base) {
+		return $folkertdev$elm_flate$Inflate$BitReader$BitReader(
+			function (state) {
+				if (!numberOfBits) {
+					return $elm$core$Result$Ok(
+						_Utils_Tuple2(base, state));
+				} else {
+					var _v0 = (_Utils_cmp(state.bitsAvailable, numberOfBits) < 0) ? $folkertdev$elm_flate$Inflate$BitReader$readMoreBits(state) : $elm$core$Result$Ok(state);
+					if (_v0.$ === 'Err') {
+						var e = _v0.a;
+						return $elm$core$Result$Err(e);
+					} else {
+						var d = _v0.a;
+						var val = d.tag & (65535 >>> (16 - numberOfBits));
+						var newTag = d.tag >>> numberOfBits;
+						return $elm$core$Result$Ok(
+							_Utils_Tuple2(
+								val + base,
+								{bitsAvailable: d.bitsAvailable - numberOfBits, buffer: d.buffer, reserve: d.reserve, reserveAvailable: d.reserveAvailable, tag: newTag}));
+					}
+				}
+			});
+	});
+var $folkertdev$elm_flate$Inflate$BitReader$succeed = function (x) {
+	return $folkertdev$elm_flate$Inflate$BitReader$BitReader(
+		function (s) {
+			return $elm$core$Result$Ok(
+				_Utils_Tuple2(x, s));
+		});
+};
+var $elm$core$List$tail = function (list) {
+	if (list.b) {
+		var x = list.a;
+		var xs = list.b;
+		return $elm$core$Maybe$Just(xs);
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
+};
+var $folkertdev$elm_flate$Inflate$Internal$decodeDynamicTreeLength = F4(
+	function (codeTree, hlit, hdist, _v0) {
+		var i = _v0.a;
+		var bitset = _v0.b;
+		var lengths = _v0.c;
+		if (_Utils_cmp(i, hlit + hdist) < 0) {
+			var table = A2(
+				$elm$core$Maybe$withDefault,
+				_List_Nil,
+				$elm$core$List$tail(codeTree.table));
+			return A2(
+				$folkertdev$elm_flate$Inflate$BitReader$andThen,
+				function (sym) {
+					switch (sym) {
+						case 16:
+							var prev = A2(
+								$elm$core$Maybe$withDefault,
+								0,
+								A2($elm$core$Dict$get, i - 1, lengths));
+							return A2(
+								$folkertdev$elm_flate$Inflate$BitReader$map,
+								A2(
+									$elm$core$Basics$composeR,
+									A4($folkertdev$elm_flate$Inflate$Internal$copySegment, i, prev, bitset, lengths),
+									$elm$bytes$Bytes$Decode$Loop),
+								A2($folkertdev$elm_flate$Inflate$BitReader$readBits, 2, 3));
+						case 17:
+							return A2(
+								$folkertdev$elm_flate$Inflate$BitReader$map,
+								A2(
+									$elm$core$Basics$composeR,
+									A4($folkertdev$elm_flate$Inflate$Internal$copySegment, i, 0, bitset, lengths),
+									$elm$bytes$Bytes$Decode$Loop),
+								A2($folkertdev$elm_flate$Inflate$BitReader$readBits, 3, 3));
+						case 18:
+							return A2(
+								$folkertdev$elm_flate$Inflate$BitReader$map,
+								A2(
+									$elm$core$Basics$composeR,
+									A4($folkertdev$elm_flate$Inflate$Internal$copySegment, i, 0, bitset, lengths),
+									$elm$bytes$Bytes$Decode$Loop),
+								A2($folkertdev$elm_flate$Inflate$BitReader$readBits, 7, 11));
+						case 0:
+							return A2($folkertdev$elm_flate$Inflate$BitSet$member, i, bitset) ? $folkertdev$elm_flate$Inflate$BitReader$succeed(
+								$elm$bytes$Bytes$Decode$Loop(
+									_Utils_Tuple3(
+										i + 1,
+										bitset,
+										A2($elm$core$Dict$remove, i, lengths)))) : $folkertdev$elm_flate$Inflate$BitReader$succeed(
+								$elm$bytes$Bytes$Decode$Loop(
+									_Utils_Tuple3(i + 1, bitset, lengths)));
+						default:
+							return $folkertdev$elm_flate$Inflate$BitReader$succeed(
+								$elm$bytes$Bytes$Decode$Loop(
+									_Utils_Tuple3(
+										i + 1,
+										A2($folkertdev$elm_flate$Inflate$BitSet$insert, i, bitset),
+										A3($elm$core$Dict$insert, i, sym, lengths))));
+					}
+				},
+				A2($folkertdev$elm_flate$Inflate$Internal$decodeSymbol, table, codeTree));
+		} else {
+			return $folkertdev$elm_flate$Inflate$BitReader$succeed(
+				$elm$bytes$Bytes$Decode$Done(lengths));
+		}
+	});
+var $folkertdev$elm_flate$Inflate$BitSet$empty = $folkertdev$elm_flate$Inflate$BitSet$BitSet320(0)(0)(0)(0)(0)(0)(0)(0)(0)(0);
+var $elm$core$List$takeReverse = F3(
+	function (n, list, kept) {
+		takeReverse:
+		while (true) {
+			if (n <= 0) {
+				return kept;
+			} else {
+				if (!list.b) {
+					return kept;
+				} else {
+					var x = list.a;
+					var xs = list.b;
+					var $temp$n = n - 1,
+						$temp$list = xs,
+						$temp$kept = A2($elm$core$List$cons, x, kept);
+					n = $temp$n;
+					list = $temp$list;
+					kept = $temp$kept;
+					continue takeReverse;
+				}
+			}
+		}
+	});
+var $elm$core$List$takeTailRec = F2(
+	function (n, list) {
+		return $elm$core$List$reverse(
+			A3($elm$core$List$takeReverse, n, list, _List_Nil));
+	});
+var $elm$core$List$takeFast = F3(
+	function (ctr, n, list) {
+		if (n <= 0) {
+			return _List_Nil;
+		} else {
+			var _v0 = _Utils_Tuple2(n, list);
+			_v0$1:
+			while (true) {
+				_v0$5:
+				while (true) {
+					if (!_v0.b.b) {
+						return list;
+					} else {
+						if (_v0.b.b.b) {
+							switch (_v0.a) {
+								case 1:
+									break _v0$1;
+								case 2:
+									var _v2 = _v0.b;
+									var x = _v2.a;
+									var _v3 = _v2.b;
+									var y = _v3.a;
+									return _List_fromArray(
+										[x, y]);
+								case 3:
+									if (_v0.b.b.b.b) {
+										var _v4 = _v0.b;
+										var x = _v4.a;
+										var _v5 = _v4.b;
+										var y = _v5.a;
+										var _v6 = _v5.b;
+										var z = _v6.a;
+										return _List_fromArray(
+											[x, y, z]);
+									} else {
+										break _v0$5;
+									}
+								default:
+									if (_v0.b.b.b.b && _v0.b.b.b.b.b) {
+										var _v7 = _v0.b;
+										var x = _v7.a;
+										var _v8 = _v7.b;
+										var y = _v8.a;
+										var _v9 = _v8.b;
+										var z = _v9.a;
+										var _v10 = _v9.b;
+										var w = _v10.a;
+										var tl = _v10.b;
+										return (ctr > 1000) ? A2(
+											$elm$core$List$cons,
+											x,
+											A2(
+												$elm$core$List$cons,
+												y,
+												A2(
+													$elm$core$List$cons,
+													z,
+													A2(
+														$elm$core$List$cons,
+														w,
+														A2($elm$core$List$takeTailRec, n - 4, tl))))) : A2(
+											$elm$core$List$cons,
+											x,
+											A2(
+												$elm$core$List$cons,
+												y,
+												A2(
+													$elm$core$List$cons,
+													z,
+													A2(
+														$elm$core$List$cons,
+														w,
+														A3($elm$core$List$takeFast, ctr + 1, n - 4, tl)))));
+									} else {
+										break _v0$5;
+									}
+							}
+						} else {
+							if (_v0.a === 1) {
+								break _v0$1;
+							} else {
+								break _v0$5;
+							}
+						}
+					}
+				}
+				return list;
+			}
+			var _v1 = _v0.b;
+			var x = _v1.a;
+			return _List_fromArray(
+				[x]);
+		}
+	});
+var $elm$core$List$take = F2(
+	function (n, list) {
+		return A3($elm$core$List$takeFast, 0, n, list);
+	});
+var $folkertdev$elm_flate$Inflate$Internal$decodeTreeLengths = F4(
+	function (hlit, hdist, hclen, codeLengths) {
+		var clcs = A2($elm$core$List$take, hclen, $folkertdev$elm_flate$Inflate$Internal$clcIndices);
+		var initialLengths = function () {
+			var go = F3(
+				function (xs, ys, accum) {
+					go:
+					while (true) {
+						if (!xs.b) {
+							return accum;
+						} else {
+							var index = xs.a;
+							var restIndex = xs.b;
+							if (!ys.b) {
+								return accum;
+							} else {
+								var codeLength = ys.a;
+								var restCodeLength = ys.b;
+								if (!(!codeLength)) {
+									var $temp$xs = restIndex,
+										$temp$ys = restCodeLength,
+										$temp$accum = A3($elm$core$Dict$insert, index, codeLength, accum);
+									xs = $temp$xs;
+									ys = $temp$ys;
+									accum = $temp$accum;
+									continue go;
+								} else {
+									var $temp$xs = restIndex,
+										$temp$ys = restCodeLength,
+										$temp$accum = accum;
+									xs = $temp$xs;
+									ys = $temp$ys;
+									accum = $temp$accum;
+									continue go;
+								}
+							}
+						}
+					}
+				});
+			return A3(go, clcs, codeLengths, $elm$core$Dict$empty);
+		}();
+		var codeTree = A3($folkertdev$elm_flate$Inflate$Internal$buildTree, initialLengths, 0, 19);
+		var initialBitSet = A3(
+			$elm$core$Dict$foldl,
+			F2(
+				function (i, _v0) {
+					return $folkertdev$elm_flate$Inflate$BitSet$insert(i);
+				}),
+			$folkertdev$elm_flate$Inflate$BitSet$empty,
+			initialLengths);
+		return A2(
+			$folkertdev$elm_flate$Inflate$BitReader$loop,
+			_Utils_Tuple3(0, initialBitSet, initialLengths),
+			A3($folkertdev$elm_flate$Inflate$Internal$decodeDynamicTreeLength, codeTree, hlit, hdist));
+	});
+var $folkertdev$elm_flate$Inflate$BitReader$exactly = F2(
+	function (tableCount, decoder) {
+		var helper = function (_v0) {
+			var n = _v0.a;
+			var xs = _v0.b;
+			return (n <= 0) ? $folkertdev$elm_flate$Inflate$BitReader$succeed(
+				$elm$bytes$Bytes$Decode$Done(
+					$elm$core$List$reverse(xs))) : A2(
+				$folkertdev$elm_flate$Inflate$BitReader$map,
+				function (x) {
+					return $elm$bytes$Bytes$Decode$Loop(
+						_Utils_Tuple2(
+							n - 1,
+							A2($elm$core$List$cons, x, xs)));
+				},
+				decoder);
+		};
+		return A2(
+			$folkertdev$elm_flate$Inflate$BitReader$loop,
+			_Utils_Tuple2(tableCount, _List_Nil),
+			helper);
+	});
+var $folkertdev$elm_flate$Inflate$Internal$cont = F3(
+	function (hlit, hdist, hclen) {
+		var buildTrees = function (lengths) {
+			return _Utils_Tuple2(
+				A3($folkertdev$elm_flate$Inflate$Internal$buildTree, lengths, 0, hlit),
+				A3($folkertdev$elm_flate$Inflate$Internal$buildTree, lengths, hlit, hdist));
+		};
+		return A2(
+			$folkertdev$elm_flate$Inflate$BitReader$map,
+			buildTrees,
+			A2(
+				$folkertdev$elm_flate$Inflate$BitReader$andThen,
+				A3($folkertdev$elm_flate$Inflate$Internal$decodeTreeLengths, hlit, hdist, hclen),
+				A2(
+					$folkertdev$elm_flate$Inflate$BitReader$exactly,
+					hclen,
+					A2($folkertdev$elm_flate$Inflate$BitReader$readBits, 3, 0))));
+	});
+var $folkertdev$elm_flate$Inflate$BitReader$map2 = F3(
+	function (f, _v0, _v1) {
+		var fa = _v0.a;
+		var fb = _v1.a;
+		return $folkertdev$elm_flate$Inflate$BitReader$BitReader(
+			function (state) {
+				var _v2 = fa(state);
+				if (_v2.$ === 'Err') {
+					var e = _v2.a;
+					return $elm$core$Result$Err(e);
+				} else {
+					var _v3 = _v2.a;
+					var a = _v3.a;
+					var newState = _v3.b;
+					var _v4 = fb(newState);
+					if (_v4.$ === 'Err') {
+						var e = _v4.a;
+						return $elm$core$Result$Err(e);
+					} else {
+						var _v5 = _v4.a;
+						var b = _v5.a;
+						var newerState = _v5.b;
+						return $elm$core$Result$Ok(
+							_Utils_Tuple2(
+								A2(f, a, b),
+								newerState));
+					}
+				}
+			});
+	});
+var $folkertdev$elm_flate$Inflate$BitReader$andMap = F2(
+	function (a, f) {
+		return A3($folkertdev$elm_flate$Inflate$BitReader$map2, $elm$core$Basics$apL, f, a);
+	});
+var $folkertdev$elm_flate$Inflate$BitReader$map3 = F4(
+	function (f, a, b, c) {
+		return A2(
+			$folkertdev$elm_flate$Inflate$BitReader$andMap,
+			c,
+			A2(
+				$folkertdev$elm_flate$Inflate$BitReader$andMap,
+				b,
+				A2(
+					$folkertdev$elm_flate$Inflate$BitReader$andMap,
+					a,
+					$folkertdev$elm_flate$Inflate$BitReader$succeed(f))));
+	});
+var $folkertdev$elm_flate$Inflate$Internal$decodeTrees = A2(
+	$folkertdev$elm_flate$Inflate$BitReader$andThen,
+	$elm$core$Basics$identity,
+	A4(
+		$folkertdev$elm_flate$Inflate$BitReader$map3,
+		$folkertdev$elm_flate$Inflate$Internal$cont,
+		A2($folkertdev$elm_flate$Inflate$BitReader$readBits, 5, 257),
+		A2($folkertdev$elm_flate$Inflate$BitReader$readBits, 5, 1),
+		A2($folkertdev$elm_flate$Inflate$BitReader$readBits, 4, 4)));
+var $folkertdev$elm_flate$Inflate$BitReader$error = function (e) {
+	return $folkertdev$elm_flate$Inflate$BitReader$BitReader(
+		function (s) {
+			return $elm$core$Result$Err(e);
+		});
+};
+var $folkertdev$elm_flate$Inflate$BitReader$getBit = A2($folkertdev$elm_flate$Inflate$BitReader$readBits, 1, 0);
+var $folkertdev$elm_flate$Experimental$ByteArray$get = F2(
+	function (index, _v0) {
+		var array = _v0.a;
+		var finalSize = _v0.b;
+		var finalBytes = _v0.c;
+		var offset = index % 4;
+		if (_Utils_cmp(
+			index,
+			($elm$core$Array$length(array) * 4) + finalSize) > -1) {
+			return $elm$core$Maybe$Nothing;
+		} else {
+			if (_Utils_cmp(
+				index,
+				$elm$core$Array$length(array) * 4) > -1) {
+				return $elm$core$Maybe$Just(255 & (finalBytes >>> (8 * (3 - offset))));
+			} else {
+				var internalIndex = (index / 4) | 0;
+				var _v1 = A2($elm$core$Array$get, internalIndex, array);
+				if (_v1.$ === 'Nothing') {
+					return $elm$core$Maybe$Nothing;
+				} else {
+					var int32 = _v1.a;
+					return $elm$core$Maybe$Just(255 & (int32 >>> (8 * (3 - offset))));
+				}
+			}
+		}
+	});
+var $elm$core$Basics$min = F2(
+	function (x, y) {
+		return (_Utils_cmp(x, y) < 0) ? x : y;
+	});
+var $folkertdev$elm_flate$Experimental$ByteArray$copyToBackInternal = F5(
+	function (startIndex, size, array, finalSize, finalBytes) {
+		copyToBackInternal:
+		while (true) {
+			var offset = startIndex % 4;
+			var internalIndex = (startIndex / 4) | 0;
+			if (size <= 0) {
+				return A3($folkertdev$elm_flate$Experimental$ByteArray$ByteArray, array, finalSize, finalBytes);
+			} else {
+				if (_Utils_cmp(
+					startIndex + 4,
+					(($elm$core$Array$length(array) - 1) * 4) + finalSize) > -1) {
+					var _v0 = A2(
+						$folkertdev$elm_flate$Experimental$ByteArray$get,
+						startIndex,
+						A3($folkertdev$elm_flate$Experimental$ByteArray$ByteArray, array, finalSize, finalBytes));
+					if (_v0.$ === 'Nothing') {
+						return A3($folkertdev$elm_flate$Experimental$ByteArray$ByteArray, array, finalSize, finalBytes);
+					} else {
+						var value = _v0.a;
+						var _v1 = A2(
+							$folkertdev$elm_flate$Experimental$ByteArray$push,
+							value,
+							A3($folkertdev$elm_flate$Experimental$ByteArray$ByteArray, array, finalSize, finalBytes));
+						var newArray = _v1.a;
+						var newFinalSize = _v1.b;
+						var newFinalBytes = _v1.c;
+						var $temp$startIndex = startIndex + 1,
+							$temp$size = size - 1,
+							$temp$array = newArray,
+							$temp$finalSize = newFinalSize,
+							$temp$finalBytes = newFinalBytes;
+						startIndex = $temp$startIndex;
+						size = $temp$size;
+						array = $temp$array;
+						finalSize = $temp$finalSize;
+						finalBytes = $temp$finalBytes;
+						continue copyToBackInternal;
+					}
+				} else {
+					var _v2 = A2($elm$core$Array$get, internalIndex, array);
+					if (_v2.$ === 'Nothing') {
+						return A3($folkertdev$elm_flate$Experimental$ByteArray$ByteArray, array, finalSize, finalBytes);
+					} else {
+						var value = _v2.a;
+						var written = A2($elm$core$Basics$min, 4 - offset, size);
+						var maskedFront = value << (8 * offset);
+						var maskedBack = function () {
+							if (_Utils_cmp(4 - offset, size) > 0) {
+								var bytesWeNeedToRemove = 4 - size;
+								var bytesWeHave = (3 - offset) + 1;
+								return maskedFront >> (bytesWeNeedToRemove * 8);
+							} else {
+								return maskedFront >> (offset * 8);
+							}
+						}();
+						var _v3 = A3(
+							$folkertdev$elm_flate$Experimental$ByteArray$pushMany,
+							written,
+							maskedBack,
+							A3($folkertdev$elm_flate$Experimental$ByteArray$ByteArray, array, finalSize, finalBytes));
+						var x = _v3.a;
+						var y = _v3.b;
+						var z = _v3.c;
+						var $temp$startIndex = startIndex + written,
+							$temp$size = size - written,
+							$temp$array = x,
+							$temp$finalSize = y,
+							$temp$finalBytes = z;
+						startIndex = $temp$startIndex;
+						size = $temp$size;
+						array = $temp$array;
+						finalSize = $temp$finalSize;
+						finalBytes = $temp$finalBytes;
+						continue copyToBackInternal;
+					}
+				}
+			}
+		}
+	});
+var $folkertdev$elm_flate$Experimental$ByteArray$copyToBack = F3(
+	function (startIndex, size, _v0) {
+		var array = _v0.a;
+		var finalSize = _v0.b;
+		var finalBytes = _v0.c;
+		return A5($folkertdev$elm_flate$Experimental$ByteArray$copyToBackInternal, startIndex, size, array, finalSize, finalBytes);
+	});
+var $folkertdev$elm_flate$Inflate$Internal$HuffmanTable = function (a) {
+	return {$: 'HuffmanTable', a: a};
+};
+var $elm$core$Elm$JsArray$foldl = _JsArray_foldl;
+var $elm$core$Array$foldl = F3(
+	function (func, baseCase, _v0) {
+		var tree = _v0.c;
+		var tail = _v0.d;
+		var helper = F2(
+			function (node, acc) {
+				if (node.$ === 'SubTree') {
+					var subTree = node.a;
+					return A3($elm$core$Elm$JsArray$foldl, helper, acc, subTree);
+				} else {
+					var values = node.a;
+					return A3($elm$core$Elm$JsArray$foldl, func, acc, values);
+				}
+			});
+		return A3(
+			$elm$core$Elm$JsArray$foldl,
+			func,
+			A3($elm$core$Elm$JsArray$foldl, helper, baseCase, tree),
+			tail);
+	});
+var $folkertdev$elm_flate$Inflate$Internal$buildBitsBase = F2(
+	function (delta, first) {
+		var initializer = function (i) {
+			return (_Utils_cmp(i, delta) < 0) ? 0 : (((i - delta) / delta) | 0);
+		};
+		var folder = F2(
+			function (bit, _v0) {
+				var sum = _v0.a;
+				var accum = _v0.b;
+				return _Utils_Tuple2(
+					sum + (1 << bit),
+					A2(
+						$elm$core$Array$push,
+						{base: sum, bits: bit},
+						accum));
+			});
+		var bits = A2($elm$core$Array$initialize, 30, initializer);
+		var base = A3(
+			$elm$core$Array$foldl,
+			folder,
+			_Utils_Tuple2(first, $elm$core$Array$empty),
+			bits).b;
+		return $folkertdev$elm_flate$Inflate$Internal$HuffmanTable(base);
+	});
+var $folkertdev$elm_flate$Inflate$Internal$hardcodedDistanceTable = A2($folkertdev$elm_flate$Inflate$Internal$buildBitsBase, 2, 1);
+var $folkertdev$elm_flate$Inflate$Internal$hardcodedLengthTable = function (_v0) {
+	var array = _v0.a;
+	return $folkertdev$elm_flate$Inflate$Internal$HuffmanTable(
+		A3(
+			$elm$core$Array$set,
+			28,
+			{base: 258, bits: 0},
+			array));
+}(
+	A2($folkertdev$elm_flate$Inflate$Internal$buildBitsBase, 4, 3));
+var $folkertdev$elm_flate$Inflate$Internal$readHuffmanTable = F2(
+	function (index, _v0) {
+		var table = _v0.a;
+		return A2($elm$core$Array$get, index, table);
+	});
+var $folkertdev$elm_flate$Inflate$Internal$decodeLength = function (symbol) {
+	var _v0 = A2($folkertdev$elm_flate$Inflate$Internal$readHuffmanTable, symbol - 257, $folkertdev$elm_flate$Inflate$Internal$hardcodedLengthTable);
+	if (_v0.$ === 'Nothing') {
+		return $folkertdev$elm_flate$Inflate$BitReader$error(
+			function () {
+				var _v1 = $folkertdev$elm_flate$Inflate$Internal$hardcodedDistanceTable;
+				var internal = _v1.a;
+				return 'index out of bounds in hardcodedLengthTable: requested index ' + ($elm$core$String$fromInt(symbol - 257) + ('but hardcodedLengthTable has length ' + $elm$core$String$fromInt(
+					$elm$core$Array$length(internal))));
+			}());
+	} else {
+		var entry = _v0.a;
+		return A2($folkertdev$elm_flate$Inflate$BitReader$readBits, entry.bits, entry.base);
+	}
+};
+var $folkertdev$elm_flate$Inflate$Internal$decodeOffset = F2(
+	function (outputLength, dt) {
+		var table_ = A2(
+			$elm$core$Maybe$withDefault,
+			_List_Nil,
+			$elm$core$List$tail(dt.table));
+		return A2(
+			$folkertdev$elm_flate$Inflate$BitReader$andThen,
+			function (distance) {
+				var _v0 = A2($folkertdev$elm_flate$Inflate$Internal$readHuffmanTable, distance, $folkertdev$elm_flate$Inflate$Internal$hardcodedDistanceTable);
+				if (_v0.$ === 'Nothing') {
+					return $folkertdev$elm_flate$Inflate$BitReader$error(
+						function () {
+							var _v1 = $folkertdev$elm_flate$Inflate$Internal$hardcodedDistanceTable;
+							var internal = _v1.a;
+							return 'index out of bounds in hardcodedDistanceTable: requested index ' + ($elm$core$String$fromInt(distance) + ('but hardcodedLengthTable has length ' + $elm$core$String$fromInt(
+								$elm$core$Array$length(internal))));
+						}());
+				} else {
+					var entry = _v0.a;
+					return A2(
+						$folkertdev$elm_flate$Inflate$BitReader$map,
+						function (v) {
+							return outputLength - v;
+						},
+						A2($folkertdev$elm_flate$Inflate$BitReader$readBits, entry.bits, entry.base));
+				}
+			},
+			A2($folkertdev$elm_flate$Inflate$Internal$decodeSymbol, table_, dt));
+	});
+var $folkertdev$elm_flate$Inflate$Internal$inflateBlockDataHelp = F2(
+	function (trees, _v0) {
+		var outputLength = _v0.a;
+		var output = _v0.b;
+		var table = A2(
+			$elm$core$Maybe$withDefault,
+			_List_Nil,
+			$elm$core$List$tail(trees.literal.table));
+		return A2(
+			$folkertdev$elm_flate$Inflate$BitReader$andThen,
+			function (symbol) {
+				return (symbol === 256) ? $folkertdev$elm_flate$Inflate$BitReader$succeed(
+					$elm$bytes$Bytes$Decode$Done(output)) : ((symbol < 256) ? $folkertdev$elm_flate$Inflate$BitReader$succeed(
+					$elm$bytes$Bytes$Decode$Loop(
+						_Utils_Tuple2(
+							outputLength + 1,
+							A2($folkertdev$elm_flate$Experimental$ByteArray$push, symbol, output)))) : A3(
+					$folkertdev$elm_flate$Inflate$BitReader$map2,
+					F2(
+						function (length, offset) {
+							return $elm$bytes$Bytes$Decode$Loop(
+								_Utils_Tuple2(
+									outputLength + length,
+									A3($folkertdev$elm_flate$Experimental$ByteArray$copyToBack, offset, length, output)));
+						}),
+					$folkertdev$elm_flate$Inflate$Internal$decodeLength(symbol),
+					A2($folkertdev$elm_flate$Inflate$Internal$decodeOffset, outputLength, trees.distance)));
+			},
+			A2($folkertdev$elm_flate$Inflate$Internal$decodeSymbol, table, trees.literal));
+	});
+var $folkertdev$elm_flate$Inflate$Internal$inflateBlockData = F3(
+	function (trees, outputLength, output) {
+		return A2(
+			$folkertdev$elm_flate$Inflate$BitReader$loop,
+			_Utils_Tuple2(outputLength, output),
+			$folkertdev$elm_flate$Inflate$Internal$inflateBlockDataHelp(trees));
+	});
+var $folkertdev$elm_flate$Inflate$BitReader$flushHelp = function (state0) {
+	var availableSpace = 32 - state0.bitsAvailable;
+	var state = A2(
+		$folkertdev$elm_flate$Inflate$BitReader$moveFromReserve,
+		A2($elm$core$Basics$min, availableSpace, state0.reserveAvailable),
+		state0);
+	var reserveEncoder = (state.reserveAvailable > 24) ? _List_fromArray(
+		[
+			A2($elm$bytes$Bytes$Encode$unsignedInt32, $elm$bytes$Bytes$LE, state.reserve)
+		]) : ((state.reserveAvailable > 16) ? _List_fromArray(
+		[
+			A2($elm$bytes$Bytes$Encode$unsignedInt16, $elm$bytes$Bytes$LE, state.reserve),
+			$elm$bytes$Bytes$Encode$unsignedInt8(state.reserve >> 16)
+		]) : ((state.reserveAvailable > 8) ? _List_fromArray(
+		[
+			A2($elm$bytes$Bytes$Encode$unsignedInt16, $elm$bytes$Bytes$LE, state.reserve)
+		]) : ((state.reserveAvailable > 1) ? _List_fromArray(
+		[
+			$elm$bytes$Bytes$Encode$unsignedInt8(state.reserve)
+		]) : _List_Nil)));
+	var tagEncoder = (state.bitsAvailable > 24) ? _List_fromArray(
+		[
+			A2($elm$bytes$Bytes$Encode$unsignedInt32, $elm$bytes$Bytes$LE, state.tag)
+		]) : ((state.bitsAvailable > 16) ? _List_fromArray(
+		[
+			A2($elm$bytes$Bytes$Encode$unsignedInt16, $elm$bytes$Bytes$LE, state.tag),
+			$elm$bytes$Bytes$Encode$unsignedInt8(state.tag >> 16)
+		]) : ((state.bitsAvailable > 8) ? _List_fromArray(
+		[
+			A2($elm$bytes$Bytes$Encode$unsignedInt16, $elm$bytes$Bytes$LE, state.tag)
+		]) : ((state.bitsAvailable > 1) ? _List_fromArray(
+		[
+			$elm$bytes$Bytes$Encode$unsignedInt8(state.tag)
+		]) : _List_Nil)));
+	return $elm$bytes$Bytes$Encode$encode(
+		$elm$bytes$Bytes$Encode$sequence(
+			_Utils_ap(
+				tagEncoder,
+				_Utils_ap(
+					reserveEncoder,
+					_List_fromArray(
+						[
+							$elm$bytes$Bytes$Encode$bytes(state.buffer)
+						])))));
+};
+var $folkertdev$elm_flate$Inflate$BitReader$flush = function (state) {
+	return {
+		bitsAvailable: 0,
+		buffer: $folkertdev$elm_flate$Inflate$BitReader$flushHelp(state),
+		reserve: 0,
+		reserveAvailable: 0,
+		tag: 0
+	};
+};
+var $folkertdev$elm_flate$Inflate$Internal$uncompressedBlockDecoder = function (bufferWidth) {
+	var decodeLengths = A3(
+		$elm$bytes$Bytes$Decode$map2,
+		$elm$core$Tuple$pair,
+		$elm$bytes$Bytes$Decode$unsignedInt16($elm$bytes$Bytes$LE),
+		$elm$bytes$Bytes$Decode$unsignedInt16($elm$bytes$Bytes$LE));
+	return A2(
+		$elm$bytes$Bytes$Decode$andThen,
+		function (_v0) {
+			var length = _v0.a;
+			var invlength = _v0.b;
+			if (!_Utils_eq(length, (~invlength) & 65535)) {
+				return $elm$bytes$Bytes$Decode$fail;
+			} else {
+				var remainingSize = (bufferWidth - 4) - length;
+				return A3(
+					$elm$bytes$Bytes$Decode$map2,
+					$elm$core$Tuple$pair,
+					$elm$bytes$Bytes$Decode$bytes(length),
+					$elm$bytes$Bytes$Decode$bytes(remainingSize));
+			}
+		},
+		decodeLengths);
+};
+var $folkertdev$elm_flate$Inflate$Internal$inflateUncompressedBlock = $folkertdev$elm_flate$Inflate$BitReader$BitReader(
+	function (state_) {
+		var state = $folkertdev$elm_flate$Inflate$BitReader$flush(state_);
+		var _v0 = A2(
+			$elm$bytes$Bytes$Decode$decode,
+			$folkertdev$elm_flate$Inflate$Internal$uncompressedBlockDecoder(
+				$elm$bytes$Bytes$width(state.buffer)),
+			state.buffer);
+		if (_v0.$ === 'Nothing') {
+			return $elm$core$Result$Err('inflateUncompressedBlock: ran out of bounds');
+		} else {
+			var _v1 = _v0.a;
+			var block = _v1.a;
+			var newBuffer = _v1.b;
+			return $elm$core$Result$Ok(
+				_Utils_Tuple2(
+					block,
+					_Utils_update(
+						state,
+						{buffer: newBuffer})));
+		}
+	});
+var $folkertdev$elm_flate$Experimental$ByteArray$length = function (_v0) {
+	var array = _v0.a;
+	var finalSize = _v0.b;
+	var finalBytes = _v0.c;
+	var _v1 = $elm$core$Array$length(array) * 4;
+	if (!_v1) {
+		return finalSize;
+	} else {
+		var l = _v1;
+		return l + finalSize;
+	}
+};
+var $elm$core$Elm$JsArray$appendN = _JsArray_appendN;
+var $elm$core$Elm$JsArray$slice = _JsArray_slice;
+var $elm$core$Array$appendHelpBuilder = F2(
+	function (tail, builder) {
+		var tailLen = $elm$core$Elm$JsArray$length(tail);
+		var notAppended = ($elm$core$Array$branchFactor - $elm$core$Elm$JsArray$length(builder.tail)) - tailLen;
+		var appended = A3($elm$core$Elm$JsArray$appendN, $elm$core$Array$branchFactor, builder.tail, tail);
+		return (notAppended < 0) ? {
+			nodeList: A2(
+				$elm$core$List$cons,
+				$elm$core$Array$Leaf(appended),
+				builder.nodeList),
+			nodeListSize: builder.nodeListSize + 1,
+			tail: A3($elm$core$Elm$JsArray$slice, notAppended, tailLen, tail)
+		} : ((!notAppended) ? {
+			nodeList: A2(
+				$elm$core$List$cons,
+				$elm$core$Array$Leaf(appended),
+				builder.nodeList),
+			nodeListSize: builder.nodeListSize + 1,
+			tail: $elm$core$Elm$JsArray$empty
+		} : {nodeList: builder.nodeList, nodeListSize: builder.nodeListSize, tail: appended});
+	});
+var $elm$core$Array$appendHelpTree = F2(
+	function (toAppend, array) {
+		var len = array.a;
+		var tree = array.c;
+		var tail = array.d;
+		var itemsToAppend = $elm$core$Elm$JsArray$length(toAppend);
+		var notAppended = ($elm$core$Array$branchFactor - $elm$core$Elm$JsArray$length(tail)) - itemsToAppend;
+		var appended = A3($elm$core$Elm$JsArray$appendN, $elm$core$Array$branchFactor, tail, toAppend);
+		var newArray = A2($elm$core$Array$unsafeReplaceTail, appended, array);
+		if (notAppended < 0) {
+			var nextTail = A3($elm$core$Elm$JsArray$slice, notAppended, itemsToAppend, toAppend);
+			return A2($elm$core$Array$unsafeReplaceTail, nextTail, newArray);
+		} else {
+			return newArray;
+		}
+	});
+var $elm$core$Array$builderFromArray = function (_v0) {
+	var len = _v0.a;
+	var tree = _v0.c;
+	var tail = _v0.d;
+	var helper = F2(
+		function (node, acc) {
+			if (node.$ === 'SubTree') {
+				var subTree = node.a;
+				return A3($elm$core$Elm$JsArray$foldl, helper, acc, subTree);
+			} else {
+				return A2($elm$core$List$cons, node, acc);
+			}
+		});
+	return {
+		nodeList: A3($elm$core$Elm$JsArray$foldl, helper, _List_Nil, tree),
+		nodeListSize: (len / $elm$core$Array$branchFactor) | 0,
+		tail: tail
+	};
+};
+var $elm$core$Array$append = F2(
+	function (a, _v0) {
+		var aTail = a.d;
+		var bLen = _v0.a;
+		var bTree = _v0.c;
+		var bTail = _v0.d;
+		if (_Utils_cmp(bLen, $elm$core$Array$branchFactor * 4) < 1) {
+			var foldHelper = F2(
+				function (node, array) {
+					if (node.$ === 'SubTree') {
+						var tree = node.a;
+						return A3($elm$core$Elm$JsArray$foldl, foldHelper, array, tree);
+					} else {
+						var leaf = node.a;
+						return A2($elm$core$Array$appendHelpTree, leaf, array);
+					}
+				});
+			return A2(
+				$elm$core$Array$appendHelpTree,
+				bTail,
+				A3($elm$core$Elm$JsArray$foldl, foldHelper, a, bTree));
+		} else {
+			var foldHelper = F2(
+				function (node, builder) {
+					if (node.$ === 'SubTree') {
+						var tree = node.a;
+						return A3($elm$core$Elm$JsArray$foldl, foldHelper, builder, tree);
+					} else {
+						var leaf = node.a;
+						return A2($elm$core$Array$appendHelpBuilder, leaf, builder);
+					}
+				});
+			return A2(
+				$elm$core$Array$builderToArray,
+				true,
+				A2(
+					$elm$core$Array$appendHelpBuilder,
+					bTail,
+					A3(
+						$elm$core$Elm$JsArray$foldl,
+						foldHelper,
+						$elm$core$Array$builderFromArray(a),
+						bTree)));
+		}
+	});
+var $elm$core$Array$fromListHelp = F3(
+	function (list, nodeList, nodeListSize) {
+		fromListHelp:
+		while (true) {
+			var _v0 = A2($elm$core$Elm$JsArray$initializeFromList, $elm$core$Array$branchFactor, list);
+			var jsArray = _v0.a;
+			var remainingItems = _v0.b;
+			if (_Utils_cmp(
+				$elm$core$Elm$JsArray$length(jsArray),
+				$elm$core$Array$branchFactor) < 0) {
+				return A2(
+					$elm$core$Array$builderToArray,
+					true,
+					{nodeList: nodeList, nodeListSize: nodeListSize, tail: jsArray});
+			} else {
+				var $temp$list = remainingItems,
+					$temp$nodeList = A2(
+					$elm$core$List$cons,
+					$elm$core$Array$Leaf(jsArray),
+					nodeList),
+					$temp$nodeListSize = nodeListSize + 1;
+				list = $temp$list;
+				nodeList = $temp$nodeList;
+				nodeListSize = $temp$nodeListSize;
+				continue fromListHelp;
+			}
+		}
+	});
+var $elm$core$Array$fromList = function (list) {
+	if (!list.b) {
+		return $elm$core$Array$empty;
+	} else {
+		return A3($elm$core$Array$fromListHelp, list, _List_Nil, 0);
+	}
+};
+var $folkertdev$elm_flate$Inflate$Internal$sdtree = {
+	table: _List_fromArray(
+		[0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+	trans: A2(
+		$elm$core$Array$append,
+		$elm$core$Array$fromList(
+			_List_fromArray(
+				[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31])),
+		A2($elm$core$Array$repeat, 288 - 32, 0))
+};
+var $folkertdev$elm_flate$Inflate$Internal$sltree = {
+	table: _List_fromArray(
+		[0, 0, 0, 0, 0, 0, 0, 24, 152, 112, 0, 0, 0, 0, 0, 0]),
+	trans: $elm$core$Array$fromList(
+		_List_fromArray(
+			[256, 257, 258, 259, 260, 261, 262, 263, 264, 265, 266, 267, 268, 269, 270, 271, 272, 273, 274, 275, 276, 277, 278, 279, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 280, 281, 282, 283, 284, 285, 286, 287, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255]))
+};
+var $folkertdev$elm_flate$Inflate$Internal$uncompressHelp = function (output) {
+	var uncompressBlock = function (btype) {
+		switch (btype) {
+			case 0:
+				return A2(
+					$folkertdev$elm_flate$Inflate$BitReader$map,
+					function (bytes) {
+						return A2($folkertdev$elm_flate$Experimental$ByteArray$appendBytes, bytes, output);
+					},
+					A2(
+						$folkertdev$elm_flate$Inflate$BitReader$andThen,
+						function (_v1) {
+							return $folkertdev$elm_flate$Inflate$Internal$inflateUncompressedBlock;
+						},
+						A2($folkertdev$elm_flate$Inflate$BitReader$exactly, 5, $folkertdev$elm_flate$Inflate$BitReader$getBit)));
+			case 1:
+				return A3(
+					$folkertdev$elm_flate$Inflate$Internal$inflateBlockData,
+					{distance: $folkertdev$elm_flate$Inflate$Internal$sdtree, literal: $folkertdev$elm_flate$Inflate$Internal$sltree},
+					$folkertdev$elm_flate$Experimental$ByteArray$length(output),
+					output);
+			case 2:
+				return A2(
+					$folkertdev$elm_flate$Inflate$BitReader$andThen,
+					function (_v2) {
+						var ltree = _v2.a;
+						var dtree = _v2.b;
+						return A3(
+							$folkertdev$elm_flate$Inflate$Internal$inflateBlockData,
+							{distance: dtree, literal: ltree},
+							$folkertdev$elm_flate$Experimental$ByteArray$length(output),
+							output);
+					},
+					$folkertdev$elm_flate$Inflate$Internal$decodeTrees);
+			default:
+				return $folkertdev$elm_flate$Inflate$BitReader$error(
+					'invalid block type: ' + ($elm$core$String$fromInt(btype) + ' (only 0, 1 and 2 are valid block types)'));
+		}
+	};
+	var readTwoBits = A3(
+		$folkertdev$elm_flate$Inflate$BitReader$map2,
+		F2(
+			function (b1, b2) {
+				return b1 + (2 * b2);
+			}),
+		$folkertdev$elm_flate$Inflate$BitReader$getBit,
+		$folkertdev$elm_flate$Inflate$BitReader$getBit);
+	var go = F2(
+		function (isFinal, blockType) {
+			return (!(!isFinal)) ? A2(
+				$folkertdev$elm_flate$Inflate$BitReader$map,
+				$elm$bytes$Bytes$Decode$Done,
+				uncompressBlock(blockType)) : A2(
+				$folkertdev$elm_flate$Inflate$BitReader$map,
+				$elm$bytes$Bytes$Decode$Loop,
+				uncompressBlock(blockType));
+		});
+	return A2(
+		$folkertdev$elm_flate$Inflate$BitReader$andThen,
+		$elm$core$Basics$identity,
+		A3($folkertdev$elm_flate$Inflate$BitReader$map2, go, $folkertdev$elm_flate$Inflate$BitReader$getBit, readTwoBits));
+};
+var $folkertdev$elm_flate$Inflate$Internal$uncompress = A2(
+	$folkertdev$elm_flate$Inflate$BitReader$map,
+	A2($elm$core$Basics$composeR, $folkertdev$elm_flate$Experimental$ByteArray$toBytes, $elm$core$List$singleton),
+	A2($folkertdev$elm_flate$Inflate$BitReader$loop, $folkertdev$elm_flate$Experimental$ByteArray$empty, $folkertdev$elm_flate$Inflate$Internal$uncompressHelp));
+var $folkertdev$elm_flate$Inflate$Internal$inflate = function (buffer) {
+	var _v0 = A2($folkertdev$elm_flate$Inflate$BitReader$decode, buffer, $folkertdev$elm_flate$Inflate$Internal$uncompress);
+	if (_v0.$ === 'Err') {
+		var e = _v0.a;
+		return $elm$core$Result$Err(e);
+	} else {
+		var values = _v0.a;
+		return $elm$core$Result$Ok(
+			$elm$bytes$Bytes$Encode$encode(
+				$elm$bytes$Bytes$Encode$sequence(
+					A2($elm$core$List$map, $elm$bytes$Bytes$Encode$bytes, values))));
+	}
+};
+var $elm$core$Basics$modBy = _Basics_modBy;
+var $folkertdev$elm_flate$Inflate$ZLib$Slices = F4(
+	function (cmf, flg, buffer, a32) {
+		return {a32: a32, buffer: buffer, cmf: cmf, flg: flg};
+	});
+var $folkertdev$elm_flate$Inflate$ZLib$decodeAdler32Checksum = $elm$bytes$Bytes$Decode$unsignedInt32($elm$bytes$Bytes$BE);
+var $folkertdev$elm_flate$Inflate$ZLib$slice = function (buffer) {
+	var decoder = A5(
+		$elm$bytes$Bytes$Decode$map4,
+		$folkertdev$elm_flate$Inflate$ZLib$Slices,
+		$elm$bytes$Bytes$Decode$unsignedInt8,
+		$elm$bytes$Bytes$Decode$unsignedInt8,
+		$elm$bytes$Bytes$Decode$bytes(
+			($elm$bytes$Bytes$width(buffer) - 2) - 4),
+		$folkertdev$elm_flate$Inflate$ZLib$decodeAdler32Checksum);
+	return A2($elm$bytes$Bytes$Decode$decode, decoder, buffer);
+};
+var $folkertdev$elm_flate$Inflate$ZLib$inflate = function (buffer) {
+	var _v0 = $folkertdev$elm_flate$Inflate$ZLib$slice(buffer);
+	if (_v0.$ === 'Nothing') {
+		return $elm$core$Result$Err($folkertdev$elm_flate$Inflate$ZLib$InvalidSlice);
+	} else {
+		var sliced = _v0.a;
+		if (!(!A2($elm$core$Basics$modBy, 31, (256 * sliced.cmf) + sliced.flg))) {
+			return $elm$core$Result$Err($folkertdev$elm_flate$Inflate$ZLib$InvalidChecksum);
+		} else {
+			if ((sliced.cmf & 15) !== 8) {
+				return $elm$core$Result$Err($folkertdev$elm_flate$Inflate$ZLib$InvalidMethod);
+			} else {
+				if ((sliced.cmf >> 4) > 7) {
+					return $elm$core$Result$Err($folkertdev$elm_flate$Inflate$ZLib$InvalidWindowSize);
+				} else {
+					if (!(!(sliced.flg & 32))) {
+						return $elm$core$Result$Err($folkertdev$elm_flate$Inflate$ZLib$PresetDictionaryIssue);
+					} else {
+						var _v1 = $folkertdev$elm_flate$Inflate$Internal$inflate(sliced.buffer);
+						if (_v1.$ === 'Err') {
+							var e = _v1.a;
+							return $elm$core$Result$Err(
+								$folkertdev$elm_flate$Inflate$ZLib$InflateError(e));
+						} else {
+							var resultBuffer = _v1.a;
+							var found = $folkertdev$elm_flate$Checksum$Adler32$adler32(resultBuffer);
+							return (!_Utils_eq(sliced.a32, found)) ? $elm$core$Result$Err(
+								$folkertdev$elm_flate$Inflate$ZLib$InvalidAdler(
+									{found: found, shouldBe: sliced.a32})) : $elm$core$Result$Ok(resultBuffer);
+						}
+					}
+				}
+			}
+		}
+	}
+};
+var $folkertdev$elm_flate$Inflate$Inflate$inflateZLib = function (buffer) {
+	var _v0 = $folkertdev$elm_flate$Inflate$ZLib$inflate(buffer);
+	if (_v0.$ === 'Err') {
+		var e = _v0.a;
+		return $elm$core$Maybe$Nothing;
+	} else {
+		var value = _v0.a;
+		return $elm$core$Maybe$Just(value);
+	}
+};
+var $folkertdev$elm_flate$Flate$inflateZlib = $folkertdev$elm_flate$Inflate$Inflate$inflateZLib;
+var $justgook$elm_image$Image$Internal$PNG$imageDecoder = F3(
+	function (header, palette, total) {
+		var width = header.width;
+		var height = header.height;
+		var color = header.color;
+		return A2(
+			$elm$bytes$Bytes$Decode$andThen,
+			A2(
+				$elm$core$Basics$composeR,
+				$folkertdev$elm_flate$Flate$inflateZlib,
+				A2(
+					$elm$core$Basics$composeR,
+					$elm$core$Maybe$andThen(
+						$elm$bytes$Bytes$Decode$decode(
+							A2($justgook$elm_image$Image$Internal$PNG$dataDecode, header, palette))),
+					A2(
+						$elm$core$Basics$composeR,
+						$elm$core$Maybe$map($elm$bytes$Bytes$Decode$succeed),
+						$elm$core$Maybe$withDefault($elm$bytes$Bytes$Decode$fail)))),
+			$elm$bytes$Bytes$Decode$bytes(total));
+	});
+var $justgook$elm_image$Image$Internal$PNG$decodeIEND = F2(
+	function (image, length) {
+		var header = image.header;
+		var palette = image.palette;
+		return A2(
+			$elm$bytes$Bytes$Decode$andThen,
+			function (_v0) {
+				var _v1 = image.data;
+				if (_v1.$ === 'Collecting') {
+					var e = _v1.a;
+					var bytes = $elm$bytes$Bytes$Encode$encode(e);
+					var total = $elm$bytes$Bytes$width(bytes);
+					var decoder = A3($justgook$elm_image$Image$Internal$PNG$imageDecoder, header, palette, total);
+					return $elm$bytes$Bytes$Decode$succeed(
+						_Utils_update(
+							image,
+							{
+								data: $justgook$elm_image$Image$Internal$PNG$ImageData(
+									A3(
+										$justgook$elm_image$Image$Internal$ImageData$Bytes,
+										$justgook$elm_image$Image$Info$Png(header),
+										decoder,
+										bytes))
+							}));
+				} else {
+					return $elm$bytes$Bytes$Decode$fail;
+				}
+			},
+			$elm$bytes$Bytes$Decode$bytes(length));
+	});
+var $justgook$elm_image$Image$Internal$PNG$None = {$: 'None'};
+var $justgook$elm_image$Image$Info$BitDepth8_16__8 = {$: 'BitDepth8_16__8'};
+var $justgook$elm_image$Image$Info$Greyscale = function (a) {
+	return {$: 'Greyscale', a: a};
+};
+var $justgook$elm_image$Image$Info$GreyscaleAlpha = function (a) {
+	return {$: 'GreyscaleAlpha', a: a};
+};
+var $justgook$elm_image$Image$Info$IndexedColour = function (a) {
+	return {$: 'IndexedColour', a: a};
+};
+var $justgook$elm_image$Image$Info$TrueColour = function (a) {
+	return {$: 'TrueColour', a: a};
+};
+var $justgook$elm_image$Image$Info$TrueColourAlpha = function (a) {
+	return {$: 'TrueColourAlpha', a: a};
+};
+var $justgook$elm_image$Image$Info$BitDepth1_2_4_8__1 = {$: 'BitDepth1_2_4_8__1'};
+var $justgook$elm_image$Image$Info$BitDepth1_2_4_8__2 = {$: 'BitDepth1_2_4_8__2'};
+var $justgook$elm_image$Image$Info$BitDepth1_2_4_8__4 = {$: 'BitDepth1_2_4_8__4'};
+var $justgook$elm_image$Image$Info$BitDepth1_2_4_8__8 = {$: 'BitDepth1_2_4_8__8'};
+var $justgook$elm_image$Image$Internal$PNG$fromIntBitDepth1_2_4_8 = function (i) {
+	switch (i) {
+		case 1:
+			return $elm$bytes$Bytes$Decode$succeed($justgook$elm_image$Image$Info$BitDepth1_2_4_8__1);
+		case 2:
+			return $elm$bytes$Bytes$Decode$succeed($justgook$elm_image$Image$Info$BitDepth1_2_4_8__2);
+		case 4:
+			return $elm$bytes$Bytes$Decode$succeed($justgook$elm_image$Image$Info$BitDepth1_2_4_8__4);
+		case 8:
+			return $elm$bytes$Bytes$Decode$succeed($justgook$elm_image$Image$Info$BitDepth1_2_4_8__8);
+		default:
+			return $elm$bytes$Bytes$Decode$fail;
+	}
+};
+var $justgook$elm_image$Image$Info$BitDepth1_2_4_8_16__1 = {$: 'BitDepth1_2_4_8_16__1'};
+var $justgook$elm_image$Image$Info$BitDepth1_2_4_8_16__16 = {$: 'BitDepth1_2_4_8_16__16'};
+var $justgook$elm_image$Image$Info$BitDepth1_2_4_8_16__2 = {$: 'BitDepth1_2_4_8_16__2'};
+var $justgook$elm_image$Image$Info$BitDepth1_2_4_8_16__4 = {$: 'BitDepth1_2_4_8_16__4'};
+var $justgook$elm_image$Image$Info$BitDepth1_2_4_8_16__8 = {$: 'BitDepth1_2_4_8_16__8'};
+var $justgook$elm_image$Image$Internal$PNG$fromIntBitDepth1_2_4_8_16 = function (i) {
+	switch (i) {
+		case 1:
+			return $elm$bytes$Bytes$Decode$succeed($justgook$elm_image$Image$Info$BitDepth1_2_4_8_16__1);
+		case 2:
+			return $elm$bytes$Bytes$Decode$succeed($justgook$elm_image$Image$Info$BitDepth1_2_4_8_16__2);
+		case 4:
+			return $elm$bytes$Bytes$Decode$succeed($justgook$elm_image$Image$Info$BitDepth1_2_4_8_16__4);
+		case 8:
+			return $elm$bytes$Bytes$Decode$succeed($justgook$elm_image$Image$Info$BitDepth1_2_4_8_16__8);
+		case 6:
+			return $elm$bytes$Bytes$Decode$succeed($justgook$elm_image$Image$Info$BitDepth1_2_4_8_16__16);
+		default:
+			return $elm$bytes$Bytes$Decode$fail;
+	}
+};
+var $justgook$elm_image$Image$Info$BitDepth8_16__16 = {$: 'BitDepth8_16__16'};
+var $justgook$elm_image$Image$Internal$PNG$fromIntBitDepth8_16 = function (i) {
+	switch (i) {
+		case 8:
+			return $elm$bytes$Bytes$Decode$succeed($justgook$elm_image$Image$Info$BitDepth8_16__8);
+		case 16:
+			return $elm$bytes$Bytes$Decode$succeed($justgook$elm_image$Image$Info$BitDepth8_16__16);
+		default:
+			return $elm$bytes$Bytes$Decode$fail;
+	}
+};
+var $justgook$elm_image$Image$Internal$PNG$decodeIHDRColor = A2(
+	$elm$bytes$Bytes$Decode$andThen,
+	$elm$core$Basics$identity,
+	A3(
+		$elm$bytes$Bytes$Decode$map2,
+		F2(
+			function (depth, color) {
+				switch (color) {
+					case 0:
+						return A2(
+							$elm$bytes$Bytes$Decode$map,
+							$justgook$elm_image$Image$Info$Greyscale,
+							$justgook$elm_image$Image$Internal$PNG$fromIntBitDepth1_2_4_8_16(depth));
+					case 2:
+						return A2(
+							$elm$bytes$Bytes$Decode$map,
+							$justgook$elm_image$Image$Info$TrueColour,
+							$justgook$elm_image$Image$Internal$PNG$fromIntBitDepth8_16(depth));
+					case 3:
+						return A2(
+							$elm$bytes$Bytes$Decode$map,
+							$justgook$elm_image$Image$Info$IndexedColour,
+							$justgook$elm_image$Image$Internal$PNG$fromIntBitDepth1_2_4_8(depth));
+					case 4:
+						return A2(
+							$elm$bytes$Bytes$Decode$map,
+							$justgook$elm_image$Image$Info$GreyscaleAlpha,
+							$justgook$elm_image$Image$Internal$PNG$fromIntBitDepth8_16(depth));
+					case 6:
+						return $elm$bytes$Bytes$Decode$succeed(
+							$justgook$elm_image$Image$Info$TrueColourAlpha($justgook$elm_image$Image$Info$BitDepth8_16__8));
+					default:
+						return $elm$bytes$Bytes$Decode$fail;
+				}
+			}),
+		$elm$bytes$Bytes$Decode$unsignedInt8,
+		$elm$bytes$Bytes$Decode$unsignedInt8));
+var $justgook$elm_image$Image$Internal$PNG$decodeInterlace = A2(
+	$elm$bytes$Bytes$Decode$andThen,
+	function (interlace) {
+		switch (interlace) {
+			case 0:
+				return $elm$bytes$Bytes$Decode$succeed(false);
+			case 1:
+				return $elm$bytes$Bytes$Decode$succeed(true);
+			default:
+				return $elm$bytes$Bytes$Decode$fail;
+		}
+	},
+	$elm$bytes$Bytes$Decode$unsignedInt8);
+var $justgook$elm_image$Image$Internal$PNG$decodeIHDR = A2(
+	$justgook$elm_image$Image$Internal$Decode$andMap,
+	$justgook$elm_image$Image$Internal$PNG$decodeInterlace,
+	A2(
+		$justgook$elm_image$Image$Internal$Decode$andMap,
+		$elm$bytes$Bytes$Decode$unsignedInt8,
+		A2(
+			$justgook$elm_image$Image$Internal$Decode$andMap,
+			$elm$bytes$Bytes$Decode$unsignedInt8,
+			A2(
+				$justgook$elm_image$Image$Internal$Decode$andMap,
+				$justgook$elm_image$Image$Internal$PNG$decodeIHDRColor,
+				A2(
+					$justgook$elm_image$Image$Internal$Decode$andMap,
+					$elm$bytes$Bytes$Decode$unsignedInt32($elm$bytes$Bytes$BE),
+					A2(
+						$justgook$elm_image$Image$Internal$Decode$andMap,
+						$elm$bytes$Bytes$Decode$unsignedInt32($elm$bytes$Bytes$BE),
+						$elm$bytes$Bytes$Decode$succeed(
+							F6(
+								function (width, height, color, _v0, _v1, adam7) {
+									return {
+										data: $justgook$elm_image$Image$Internal$PNG$None,
+										header: {adam7: adam7, color: color, height: height, width: width},
+										palette: $elm$core$Array$empty
+									};
+								}))))))));
+var $justgook$elm_image$Image$Internal$Decode$arrayStep = F2(
+	function (decoder, _v0) {
+		var n = _v0.a;
+		var xs = _v0.b;
+		return (n <= 0) ? $elm$bytes$Bytes$Decode$succeed(
+			$elm$bytes$Bytes$Decode$Done(xs)) : A2(
+			$elm$bytes$Bytes$Decode$map,
+			function (x) {
+				return $elm$bytes$Bytes$Decode$Loop(
+					_Utils_Tuple2(
+						n - 1,
+						A2($elm$core$Array$push, x, xs)));
+			},
+			decoder);
+	});
+var $justgook$elm_image$Image$Internal$Decode$array = F2(
+	function (count, decoder) {
+		return A2(
+			$elm$bytes$Bytes$Decode$loop,
+			_Utils_Tuple2(count, $elm$core$Array$empty),
+			$justgook$elm_image$Image$Internal$Decode$arrayStep(decoder));
+	});
+var $justgook$elm_image$Image$Internal$PNG$decodePLTE = F2(
+	function (image, length) {
+		return A2(
+			$elm$bytes$Bytes$Decode$map,
+			function (palette) {
+				return _Utils_update(
+					image,
+					{palette: palette});
+			},
+			A2(
+				$justgook$elm_image$Image$Internal$Decode$array,
+				(length / 3) | 0,
+				$justgook$elm_image$Image$Internal$Decode$unsignedInt24($elm$bytes$Bytes$BE)));
+	});
+var $justgook$elm_image$Image$Internal$PNG$decodeUnknown = F3(
+	function (kind, image, length) {
+		return A2(
+			$elm$bytes$Bytes$Decode$map,
+			function (_v0) {
+				var _v1 = _Utils_Tuple2(
+					A2(
+						$elm$bytes$Bytes$Decode$decode,
+						$elm$bytes$Bytes$Decode$string(4),
+						$elm$bytes$Bytes$Encode$encode(
+							A2($elm$bytes$Bytes$Encode$unsignedInt32, $elm$bytes$Bytes$BE, kind))),
+					kind);
+				return image;
+			},
+			$elm$bytes$Bytes$Decode$bytes(length));
+	});
+var $justgook$elm_image$Image$Internal$PNG$arrayExtraUpdate = F3(
+	function (n, f, a) {
+		var element = A2($elm$core$Array$get, n, a);
+		if (element.$ === 'Nothing') {
+			return a;
+		} else {
+			var element_ = element.a;
+			return A3(
+				$elm$core$Array$set,
+				n,
+				f(element_),
+				a);
+		}
+	});
+var $justgook$elm_image$Image$Internal$PNG$decode_tRNS = F2(
+	function (image, length) {
+		var _v0 = image.header.color;
+		if (_v0.$ === 'IndexedColour') {
+			return A2(
+				$elm$bytes$Bytes$Decode$map,
+				function (_v2) {
+					var palette = _v2.b;
+					return _Utils_update(
+						image,
+						{palette: palette});
+				},
+				A3(
+					$justgook$elm_image$Image$Internal$Decode$foldl,
+					length,
+					function (_v1) {
+						var i = _v1.a;
+						var acc = _v1.b;
+						return A2(
+							$elm$bytes$Bytes$Decode$map,
+							function (alpha) {
+								return _Utils_Tuple2(
+									i + 1,
+									A3(
+										$justgook$elm_image$Image$Internal$PNG$arrayExtraUpdate,
+										i,
+										A2(
+											$elm$core$Basics$composeR,
+											$elm$core$Bitwise$shiftLeftBy(8),
+											A2(
+												$elm$core$Basics$composeR,
+												$elm$core$Bitwise$or(alpha),
+												$elm$core$Bitwise$shiftRightZfBy(0))),
+										acc));
+							},
+							$elm$bytes$Bytes$Decode$unsignedInt8);
+					},
+					_Utils_Tuple2(0, image.palette)));
+		} else {
+			return $elm$bytes$Bytes$Decode$fail;
+		}
+	});
+var $justgook$elm_image$Image$Internal$PNG$chunkCollector = F3(
+	function (length, acc, kind) {
+		var _v0 = _Utils_Tuple3(acc, kind, length);
+		if (_v0.a.$ === 'Nothing') {
+			if ((_v0.b === 1229472850) && (_v0.c === 13)) {
+				var _v1 = _v0.a;
+				return A2($elm$bytes$Bytes$Decode$map, $elm$core$Maybe$Just, $justgook$elm_image$Image$Internal$PNG$decodeIHDR);
+			} else {
+				return $elm$bytes$Bytes$Decode$fail;
+			}
+		} else {
+			switch (_v0.b) {
+				case 1347179589:
+					var image = _v0.a.a;
+					return A2(
+						$elm$bytes$Bytes$Decode$map,
+						$elm$core$Maybe$Just,
+						A2($justgook$elm_image$Image$Internal$PNG$decodePLTE, image, length));
+				case 1951551059:
+					var image = _v0.a.a;
+					return A2(
+						$elm$bytes$Bytes$Decode$map,
+						$elm$core$Maybe$Just,
+						A2($justgook$elm_image$Image$Internal$PNG$decode_tRNS, image, length));
+				case 1229209940:
+					var image = _v0.a.a;
+					return A2(
+						$elm$bytes$Bytes$Decode$map,
+						$elm$core$Maybe$Just,
+						A2($justgook$elm_image$Image$Internal$PNG$decodeIDAT, image, length));
+				case 1229278788:
+					var image = _v0.a.a;
+					return A2(
+						$elm$bytes$Bytes$Decode$map,
+						$elm$core$Maybe$Just,
+						A2($justgook$elm_image$Image$Internal$PNG$decodeIEND, image, length));
+				default:
+					var image = _v0.a.a;
+					return A2(
+						$elm$bytes$Bytes$Decode$map,
+						$elm$core$Maybe$Just,
+						A3($justgook$elm_image$Image$Internal$PNG$decodeUnknown, kind, image, length));
+			}
+		}
+	});
+var $justgook$elm_image$Image$Internal$PNG$decodeChunk = function (acc) {
+	return A2(
+		$elm$bytes$Bytes$Decode$andThen,
+		function (_v0) {
+			var length = _v0.a;
+			var chunk = _v0.b;
+			return $elm$bytes$Bytes$Decode$succeed(
+				_Utils_Tuple2(length, chunk));
+		},
+		A2(
+			$elm$bytes$Bytes$Decode$andThen,
+			$elm$core$Basics$identity,
+			A2(
+				$elm$bytes$Bytes$Decode$andThen,
+				function (length) {
+					return A3(
+						$elm$bytes$Bytes$Decode$map2,
+						F2(
+							function (kindAndData, crc) {
+								return A2(
+									$elm$bytes$Bytes$Decode$map,
+									$elm$core$Tuple$pair(length + 12),
+									A2(
+										$elm$core$Maybe$withDefault,
+										$elm$bytes$Bytes$Decode$fail,
+										A2(
+											$elm$core$Maybe$map,
+											$elm$bytes$Bytes$Decode$succeed,
+											A2(
+												$elm$bytes$Bytes$Decode$decode,
+												A2(
+													$elm$bytes$Bytes$Decode$andThen,
+													A2($justgook$elm_image$Image$Internal$PNG$chunkCollector, length, acc),
+													$elm$bytes$Bytes$Decode$unsignedInt32($elm$bytes$Bytes$BE)),
+												kindAndData))));
+							}),
+						$elm$bytes$Bytes$Decode$bytes(length + 4),
+						$elm$bytes$Bytes$Decode$unsignedInt32($elm$bytes$Bytes$BE));
+				},
+				$elm$bytes$Bytes$Decode$unsignedInt32($elm$bytes$Bytes$BE))));
+};
+var $justgook$elm_image$Image$Internal$PNG$mainDecoder = function (chunksLength) {
+	return A2(
+		$elm$bytes$Bytes$Decode$andThen,
+		function (maybeImage) {
+			if (maybeImage.$ === 'Just') {
+				var image = maybeImage.a;
+				var _v2 = image.data;
+				if (_v2.$ === 'ImageData') {
+					var data = _v2.a;
+					return $elm$bytes$Bytes$Decode$succeed(data);
+				} else {
+					return $elm$bytes$Bytes$Decode$fail;
+				}
+			} else {
+				return $elm$bytes$Bytes$Decode$fail;
+			}
+		},
+		A2(
+			$elm$bytes$Bytes$Decode$andThen,
+			function (_v0) {
+				return A2($justgook$elm_image$Image$Internal$PNG$chunkLoopR, chunksLength, $justgook$elm_image$Image$Internal$PNG$decodeChunk);
+			},
+			A2(
+				$elm$bytes$Bytes$Decode$andThen,
+				function (signature) {
+					return _Utils_eq(
+						signature,
+						_List_fromArray(
+							[10, 26, 10, 13, 71, 78, 80, 137])) ? $elm$bytes$Bytes$Decode$succeed(_Utils_Tuple0) : $elm$bytes$Bytes$Decode$fail;
+				},
+				A2($justgook$elm_image$Image$Internal$Decode$listR, 8, $elm$bytes$Bytes$Decode$unsignedInt8))));
+};
+var $justgook$elm_image$Image$Internal$PNG$decode = function (bytes) {
+	return A2(
+		$elm$bytes$Bytes$Decode$decode,
+		$justgook$elm_image$Image$Internal$PNG$mainDecoder(
+			$elm$bytes$Bytes$width(bytes) - 8),
+		bytes);
+};
+var $justgook$elm_image$Image$or = F2(
+	function (ma, mb) {
+		if (ma.$ === 'Nothing') {
+			return mb;
+		} else {
+			return ma;
+		}
+	});
+var $justgook$elm_image$Image$decode = function (bytes) {
+	return A2(
+		$justgook$elm_image$Image$or,
+		$justgook$elm_image$Image$Internal$BMP$decode(bytes),
+		$justgook$elm_image$Image$Internal$PNG$decode(bytes));
+};
+var $author$project$Ascii$image2pix = function (file) {
+	if (file.$ === 'Nothing') {
+		return 'No file';
+	} else {
+		var i = file.a;
+		var im = $justgook$elm_image$Image$decode(i);
+		if (im.$ === 'Nothing') {
+			return 'No decode';
+		} else {
+			return 'Image';
+		}
+	}
+};
+var $elm$core$Debug$log = _Debug_log;
 var $elm$time$Time$Posix = function (a) {
 	return {$: 'Posix', a: a};
 };
@@ -5370,6 +9804,11 @@ var $author$project$Ascii$update = F2(
 						A2($elm$core$List$map, $elm$file$File$toBytes, files))));
 		} else {
 			var bytes = msg.a;
+			var _v1 = A2(
+				$elm$core$Debug$log,
+				'val',
+				$author$project$Ascii$image2pix(
+					$elm$core$List$head(bytes)));
 			return _Utils_Tuple2(
 				_Utils_update(
 					model,
