@@ -9770,20 +9770,163 @@ var $justgook$elm_image$Image$decode = function (bytes) {
 		$justgook$elm_image$Image$Internal$BMP$decode(bytes),
 		$justgook$elm_image$Image$Internal$PNG$decode(bytes));
 };
-var $author$project$Ascii$image2pix = function (file) {
-	if (file.$ === 'Nothing') {
-		return 'No file';
-	} else {
-		var i = file.a;
-		var im = $justgook$elm_image$Image$decode(i);
-		if (im.$ === 'Nothing') {
-			return 'No decode';
-		} else {
-			return 'Image';
+var $elm$core$Debug$log = _Debug_log;
+var $avh4$elm_color$Color$RgbaSpace = F4(
+	function (a, b, c, d) {
+		return {$: 'RgbaSpace', a: a, b: b, c: c, d: d};
+	});
+var $avh4$elm_color$Color$rgba = F4(
+	function (r, g, b, a) {
+		return A4($avh4$elm_color$Color$RgbaSpace, r, g, b, a);
+	});
+var $justgook$elm_image$Image$Color$int32ToColor = function (_int) {
+	var r = 255 & (_int >>> 24);
+	var g = 255 & (_int >> 16);
+	var b = 255 & (_int >> 8);
+	var a = 255 & _int;
+	return A4($avh4$elm_color$Color$rgba, r / 255, g / 255, b / 255, a / 255);
+};
+var $justgook$elm_image$Image$Info$dimensions = function (meta) {
+	switch (meta.$) {
+		case 'Png':
+			var width = meta.a.width;
+			var height = meta.a.height;
+			return {height: height, width: width};
+		case 'Bmp':
+			var width = meta.a.width;
+			var height = meta.a.height;
+			return {height: height, width: width};
+		case 'Gif':
+			var width = meta.a.width;
+			var height = meta.a.height;
+			return {height: height, width: width};
+		default:
+			var width = meta.a.width;
+			var height = meta.a.height;
+			return {height: height, width: width};
+	}
+};
+var $elm$core$List$drop = F2(
+	function (n, list) {
+		drop:
+		while (true) {
+			if (n <= 0) {
+				return list;
+			} else {
+				if (!list.b) {
+					return list;
+				} else {
+					var x = list.a;
+					var xs = list.b;
+					var $temp$n = n - 1,
+						$temp$list = xs;
+					n = $temp$n;
+					list = $temp$list;
+					continue drop;
+				}
+			}
+		}
+	});
+var $justgook$elm_image$Image$Internal$ImageData$greedyGroupsOfWithStep = F3(
+	function (size, step, xs) {
+		var xs_ = A2($elm$core$List$drop, step, xs);
+		var okayXs = $elm$core$List$length(xs) > 0;
+		var okayArgs = (size > 0) && (step > 0);
+		return (okayArgs && okayXs) ? A2(
+			$elm$core$List$cons,
+			A2($elm$core$List$take, size, xs),
+			A3($justgook$elm_image$Image$Internal$ImageData$greedyGroupsOfWithStep, size, step, xs_)) : _List_Nil;
+	});
+var $justgook$elm_image$Image$Internal$ImageData$greedyGroupsOf = F2(
+	function (size, xs) {
+		return A3($justgook$elm_image$Image$Internal$ImageData$greedyGroupsOfWithStep, size, size, xs);
+	});
+var $justgook$elm_image$Image$Internal$ImageData$toList2d = function (info) {
+	toList2d:
+	while (true) {
+		switch (info.$) {
+			case 'List':
+				var meta = info.a;
+				var l = info.b;
+				return A2(
+					$justgook$elm_image$Image$Internal$ImageData$greedyGroupsOf,
+					$justgook$elm_image$Image$Info$dimensions(meta).width,
+					l);
+			case 'List2d':
+				var l = info.b;
+				return l;
+			case 'Array':
+				var meta = info.a;
+				var arr = info.b;
+				return A2(
+					$justgook$elm_image$Image$Internal$ImageData$greedyGroupsOf,
+					$justgook$elm_image$Image$Info$dimensions(meta).width,
+					$elm$core$Array$toList(arr));
+			case 'Array2d':
+				var arr = info.b;
+				return A3(
+					$elm$core$Array$foldr,
+					F2(
+						function (line, acc1) {
+							return function (l) {
+								return A2($elm$core$List$cons, l, acc1);
+							}(
+								A3(
+									$elm$core$Array$foldr,
+									F2(
+										function (px, acc2) {
+											return A2($elm$core$List$cons, px, acc2);
+										}),
+									_List_Nil,
+									line));
+						}),
+					_List_Nil,
+					arr);
+			default:
+				var d = info.b;
+				var b = info.c;
+				var _v1 = A2($elm$bytes$Bytes$Decode$decode, d, b);
+				if (_v1.$ === 'Just') {
+					if (_v1.a.$ === 'Bytes') {
+						var _v2 = _v1.a;
+						return _List_Nil;
+					} else {
+						var newData = _v1.a;
+						var $temp$info = newData;
+						info = $temp$info;
+						continue toList2d;
+					}
+				} else {
+					return _List_Nil;
+				}
 		}
 	}
 };
-var $elm$core$Debug$log = _Debug_log;
+var $justgook$elm_image$Image$Color$toList2d = A2(
+	$elm$core$Basics$composeR,
+	$justgook$elm_image$Image$Internal$ImageData$toList2d,
+	$elm$core$List$map(
+		$elm$core$List$map($justgook$elm_image$Image$Color$int32ToColor)));
+var $author$project$Ascii$img2col = function (file) {
+	var empty = _List_fromArray(
+		[_List_Nil]);
+	if (file.$ === 'Nothing') {
+		var _v1 = A2($elm$core$Debug$log, 'No file', empty);
+		return empty;
+	} else {
+		var bytes = file.a;
+		var img = $justgook$elm_image$Image$decode(bytes);
+		if (img.$ === 'Nothing') {
+			var _v3 = A2($elm$core$Debug$log, 'No decode', empty);
+			return empty;
+		} else {
+			var i = img.a;
+			var col = $justgook$elm_image$Image$Color$toList2d(i);
+			var _v4 = A2($elm$core$Debug$log, 'Image', col);
+			return col;
+		}
+	}
+};
 var $elm$time$Time$Posix = function (a) {
 	return {$: 'Posix', a: a};
 };
@@ -9807,7 +9950,7 @@ var $author$project$Ascii$update = F2(
 			var _v1 = A2(
 				$elm$core$Debug$log,
 				'val',
-				$author$project$Ascii$image2pix(
+				$author$project$Ascii$img2col(
 					$elm$core$List$head(bytes)));
 			return _Utils_Tuple2(
 				_Utils_update(

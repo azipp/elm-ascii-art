@@ -3,12 +3,14 @@ module Ascii exposing (..)
 import Browser
 import Browser.Events
 import Bytes exposing (Bytes)
+import Color exposing (..)
 import File exposing (File)
 import File.Select as Select
 import Html exposing (..)
 import Html.Attributes as Attr
 import Html.Events exposing (..)
 import Image exposing (..)
+import Image.Color
 import Json.Decode as Decode
 import Task
 
@@ -77,7 +79,7 @@ update msg model =
         GotBytes bytes ->
             let
                 _ =
-                    Debug.log "val" (image2pix (List.head bytes))
+                    Debug.log "val" (img2col (List.head bytes))
             in
             ( { model | fileBytes = bytes }
             , Cmd.none
@@ -114,20 +116,39 @@ filesDecoder =
     Decode.at [ "target", "files" ] (Decode.list File.decoder)
 
 
-image2pix : Maybe Bytes -> String
-image2pix file =
+img2col : Maybe Bytes -> List (List Color)
+img2col file =
+    let
+        empty =
+            [ [] ]
+    in
     case file of
         Nothing ->
-            "No file"
-
-        Just i ->
             let
-                im =
-                    Image.decode i
+                _ =
+                    Debug.log "No file" empty
             in
-            case im of
-                Nothing ->
-                    "No decode"
+            empty
 
-                _ ->
-                    "Image"
+        Just bytes ->
+            let
+                img =
+                    Image.decode bytes
+            in
+            case img of
+                Nothing ->
+                    let
+                        _ =
+                            Debug.log "No decode" empty
+                    in
+                    empty
+
+                Just i ->
+                    let
+                        col =
+                            Image.Color.toList2d i
+
+                        _ =
+                            Debug.log "Image" col
+                    in
+                    col

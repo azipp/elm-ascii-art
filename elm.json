@@ -6,6 +6,7 @@
     "elm-version": "0.19.1",
     "dependencies": {
         "direct": {
+            "avh4/elm-color": "1.0.0",
             "elm/browser": "1.0.2",
             "elm/bytes": "1.0.8",
             "elm/core": "1.0.5",
@@ -15,7 +16,6 @@
             "justgook/elm-image": "4.0.0"
         },
         "indirect": {
-            "avh4/elm-color": "1.0.0",
             "danfishgold/base64-bytes": "1.0.3",
             "elm/time": "1.0.0",
             "elm/url": "1.0.0",
