@@ -79,7 +79,7 @@ update msg model =
         GotBytes bytes ->
             let
                 _ =
-                    Debug.log "val" (img2col (List.head bytes))
+                    Debug.log "val" (imageToColors (List.head bytes))
             in
             ( { model | fileBytes = bytes }
             , Cmd.none
@@ -111,13 +111,17 @@ view model =
         ]
 
 
+
+------ HELPERS ------
+
+
 filesDecoder : Decode.Decoder (List File)
 filesDecoder =
     Decode.at [ "target", "files" ] (Decode.list File.decoder)
 
 
-img2col : Maybe Bytes -> List (List Color)
-img2col file =
+imageToColors : Maybe Bytes -> List (List Color)
+imageToColors file =
     let
         empty =
             [ [] ]
@@ -152,3 +156,12 @@ img2col file =
                             Debug.log "Image" col
                     in
                     col
+
+
+colorToFloat : Color -> Float
+colorToFloat col =
+    let
+        { red, green, blue } =
+            Color.toRgba col
+    in
+    0.2126 * red + 0.7152 * green + 0.722 * blue

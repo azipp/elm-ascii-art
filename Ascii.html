@@ -9907,7 +9907,7 @@ var $justgook$elm_image$Image$Color$toList2d = A2(
 	$justgook$elm_image$Image$Internal$ImageData$toList2d,
 	$elm$core$List$map(
 		$elm$core$List$map($justgook$elm_image$Image$Color$int32ToColor)));
-var $author$project$Ascii$img2col = function (file) {
+var $author$project$Ascii$imageToColors = function (file) {
 	var empty = _List_fromArray(
 		[_List_Nil]);
 	if (file.$ === 'Nothing') {
@@ -9950,7 +9950,7 @@ var $author$project$Ascii$update = F2(
 			var _v1 = A2(
 				$elm$core$Debug$log,
 				'val',
-				$author$project$Ascii$img2col(
+				$author$project$Ascii$imageToColors(
 					$elm$core$List$head(bytes)));
 			return _Utils_Tuple2(
 				_Utils_update(
