@@ -139,9 +139,6 @@ update msg model =
             let
                 ascii =
                     imageToAscii (List.head bytes)
-
-                -- _ =
-                --     Debug.log "raw" (colorsToLuminosity (imageToColors (List.head bytes)))
             in
             ( { model | fileBytes = bytes, convertedASCII = ascii }
             , Cmd.none
@@ -186,16 +183,13 @@ filesDecoder =
 
 imageToColors : Maybe Bytes -> List (List Color)
 imageToColors file =
+    -- convert image to 2d array of colors
     let
         empty =
             [ [] ]
     in
     case file of
         Nothing ->
-            let
-                _ =
-                    Debug.log "No file" empty
-            in
             empty
 
         Just bytes ->
@@ -205,27 +199,20 @@ imageToColors file =
             in
             case img of
                 Nothing ->
-                    let
-                        _ =
-                            Debug.log "No decode" empty
-                    in
                     empty
 
                 Just i ->
-                    let
-                        col =
-                            Image.Color.toList2d i
-
-                        _ =
-                            Debug.log "Image" col
-                    in
-                    col
+                    Image.Color.toList2d i
 
 
 luminosity : Color -> Float
 luminosity col =
+    -- convert color to luminosity float using weighted avg formula
+    -- https://en.wikipedia.org/wiki/Relative_luminance
+    -- may need to transform sRGB  values to linear ones
+    -- https://en.wikipedia.org/wiki/Relative_luminance
     let
-        { red, green, blue, alpha } =
+        { red, green, blue } =
             Color.toRgba col
     in
     -- standardized on interval [0, 1]
@@ -234,6 +221,8 @@ luminosity col =
 
 colorsToLuminosity : List (List Color) -> List (List Float)
 colorsToLuminosity colors =
+    -- convert 2d list of colors to 2d list of luminosity floats
+    -- implement scale here to fit ascii in browser window
     List.map (\xs -> List.map luminosity xs) colors
 
 
@@ -242,14 +231,20 @@ colorsToLuminosity colors =
 -- get skip scale from img aspect ratio and height, width of window
 -- use 3d list to keep associated floats together
 -- until average the luminosities of inner lists?
--- extra: css to monoscale and fix font + size
+-- extra: css to set font + size
 
 
 asciify : Float -> Array Char -> Char
 asciify lum ascii =
+    -- convert luminosity float to char based on brightness
+    -- display "no solution" symbol if error in conversion
     let
         ch =
-            Array.get (Basics.round (lum * Basics.toFloat (Array.length ascii - 1))) ascii
+            Array.get
+                (Basics.round
+                    (lum * Basics.toFloat (Array.length ascii - 1))
+                )
+                ascii
     in
     case ch of
         Nothing ->
@@ -261,14 +256,28 @@ asciify lum ascii =
 
 luminosityToStrings : List (List Float) -> List String
 luminosityToStrings lumins =
-    List.map (\xs -> String.fromList (List.map (\x -> asciify x blocks) xs)) lumins
+    -- 2d list of luminosity floats to list of strings
+    List.map
+        (\xs ->
+            String.fromList
+                (List.map (\x -> asciify x blocks) xs)
+        )
+        lumins
 
 
 imageToAscii : Maybe Bytes -> List String
 imageToAscii img =
+    -- link all the necessary functions together
     luminosityToStrings (colorsToLuminosity (imageToColors img))
 
 
 asciiToHtml : List String -> List (Html msg)
 asciiToHtml strs =
-    List.map (\str -> div [ style "font-family" "monospace" ] [ text str ]) strs
+    -- list of ascii strings to list of formatted divs
+    List.map
+        (\str ->
+            div
+                [ style "font-family" "monospace" ]
+                [ text str ]
+        )
+        strs

@@ -5586,7 +5586,6 @@ var $author$project$Ascii$luminosity = function (col) {
 	var red = _v0.red;
 	var green = _v0.green;
 	var blue = _v0.blue;
-	var alpha = _v0.alpha;
 	return ((0.2126 * red) + (0.7152 * green)) + (0.0722 * blue);
 };
 var $author$project$Ascii$colorsToLuminosity = function (colors) {
@@ -9793,7 +9792,6 @@ var $justgook$elm_image$Image$decode = function (bytes) {
 		$justgook$elm_image$Image$Internal$BMP$decode(bytes),
 		$justgook$elm_image$Image$Internal$PNG$decode(bytes));
 };
-var $elm$core$Debug$log = _Debug_log;
 var $avh4$elm_color$Color$RgbaSpace = F4(
 	function (a, b, c, d) {
 		return {$: 'RgbaSpace', a: a, b: b, c: c, d: d};
@@ -9934,19 +9932,15 @@ var $author$project$Ascii$imageToColors = function (file) {
 	var empty = _List_fromArray(
 		[_List_Nil]);
 	if (file.$ === 'Nothing') {
-		var _v1 = A2($elm$core$Debug$log, 'No file', empty);
 		return empty;
 	} else {
 		var bytes = file.a;
 		var img = $justgook$elm_image$Image$decode(bytes);
 		if (img.$ === 'Nothing') {
-			var _v3 = A2($elm$core$Debug$log, 'No decode', empty);
 			return empty;
 		} else {
 			var i = img.a;
-			var col = $justgook$elm_image$Image$Color$toList2d(i);
-			var _v4 = A2($elm$core$Debug$log, 'Image', col);
-			return col;
+			return $justgook$elm_image$Image$Color$toList2d(i);
 		}
 	}
 };
