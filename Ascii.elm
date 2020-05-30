@@ -2,13 +2,11 @@ module Ascii exposing (..)
 
 import Array exposing (..)
 import Browser
-import Browser.Events
 import Bytes exposing (Bytes)
 import Color exposing (..)
 import File exposing (File)
-import File.Select as Select
 import Html exposing (..)
-import Html.Attributes as Attr
+import Html.Attributes as Attr exposing (..)
 import Html.Events exposing (..)
 import Image exposing (..)
 import Image.Color
@@ -22,14 +20,14 @@ import Task
 
 blocks : Array Char
 blocks =
-    Array.fromList [ ' ', '░', '▒', '▓', '█' ]
+    Array.fromList [ '░', '▒', '▓', '█' ]
 
 
 ascii1 : Array Char
 ascii1 =
     Array.fromList
         (String.toList
-            ".'`,^:\";~-_+<>i!lI?/\\|()1{}[]rcvunxzjftLCJUYXZO0Qoahkbdpqwm*WMB8&%$#@"
+            " .'`,^:\";~-_+<>i!lI?/\\|()1{}[]rcvunxzjftLCJUYXZO0Qoahkbdpqwm*WMB8&%$#@"
         )
 
 
@@ -52,6 +50,31 @@ ascii3 =
 
 
 
+-- blocks : Array Char
+-- blocks =
+--     Array.fromList [ '█', '▓', '▒', '░', ' ' ]
+-- ascii1 : Array Char
+-- ascii1 =
+--     Array.fromList
+--         (List.reverse
+--             (String.toList
+--                 " .'`,^:\";~-_+<>i!lI?/\\|()1{}[]rcvunxzjftLCJUYXZO0Qoahkbdpqwm*WMB8&%$#@"
+--             )
+--         )
+-- ascii2 : Array Char
+-- ascii2 =
+--     Array.fromList
+--         (String.toList
+--             "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'. "
+--         )
+-- ascii3 : Array Char
+-- ascii3 =
+--     Array.fromList
+--         (List.reverse
+--             (String.toList
+--                 " .:-=+*#%@"
+--             )
+--         )
 ------ MAIN ------
 
 
@@ -72,7 +95,7 @@ main =
 type alias Model =
     { file : List File -- list or singular?
     , fileBytes : List Bytes
-    , convertedASCII : String -- List String?
+    , convertedASCII : List String -- List String?
     }
 
 
@@ -89,7 +112,7 @@ initModel : Model
 initModel =
     { file = []
     , fileBytes = []
-    , convertedASCII = ""
+    , convertedASCII = []
     }
 
 
@@ -114,10 +137,13 @@ update msg model =
 
         GotBytes bytes ->
             let
-                _ =
-                    Debug.log "raw" (colorsToLuminosity (imageToColors (List.head bytes)))
+                ascii =
+                    imageToAscii (List.head bytes)
+
+                -- _ =
+                --     Debug.log "raw" (colorsToLuminosity (imageToColors (List.head bytes)))
             in
-            ( { model | fileBytes = bytes }
+            ( { model | fileBytes = bytes, convertedASCII = ascii }
             , Cmd.none
             )
 
@@ -138,13 +164,15 @@ subscriptions model =
 view : Model -> Html Msg
 view model =
     div []
-        [ input
+        ([ input
             [ Attr.type_ "file"
             , Attr.multiple True
             , on "change" (Decode.map GotFiles filesDecoder)
             ]
             []
-        ]
+         ]
+            ++ asciiToHtml model.convertedASCII
+        )
 
 
 
@@ -212,11 +240,13 @@ colorsToLuminosity colors =
 
 -- use indexed map to skip rows and columns by adding []
 -- get skip scale from img aspect ratio and height, width of window
+-- use 3d list to keep associated floats together
+-- until average the luminosities of inner lists?
 -- extra: css to monoscale and fix font + size
 
 
-luminosityToAscii : Float -> Array Char -> Char
-luminosityToAscii lum ascii =
+asciify : Float -> Array Char -> Char
+asciify lum ascii =
     let
         ch =
             Array.get (Basics.round (lum * Basics.toFloat (Array.length ascii - 1))) ascii
@@ -227,3 +257,18 @@ luminosityToAscii lum ascii =
 
         Just c ->
             c
+
+
+luminosityToStrings : List (List Float) -> List String
+luminosityToStrings lumins =
+    List.map (\xs -> String.fromList (List.map (\x -> asciify x blocks) xs)) lumins
+
+
+imageToAscii : Maybe Bytes -> List String
+imageToAscii img =
+    luminosityToStrings (colorsToLuminosity (imageToColors img))
+
+
+asciiToHtml : List String -> List (Html msg)
+asciiToHtml strs =
+    List.map (\str -> div [ style "font-family" "monospace" ] [ text str ]) strs
