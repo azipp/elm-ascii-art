@@ -5551,7 +5551,7 @@ var $elm$core$Task$perform = F2(
 				A2($elm$core$Task$map, toMessage, task)));
 	});
 var $elm$browser$Browser$element = _Browser_element;
-var $author$project$Ascii$initModel = {convertedASCII: '', file: _List_Nil, fileBytes: _List_Nil};
+var $author$project$Ascii$initModel = {convertedASCII: _List_Nil, file: _List_Nil, fileBytes: _List_Nil};
 var $elm$core$Platform$Cmd$batch = _Platform_batch;
 var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
 var $author$project$Ascii$init = function (_v0) {
@@ -5564,6 +5564,15 @@ var $author$project$Ascii$subscriptions = function (model) {
 };
 var $author$project$Ascii$GotBytes = function (a) {
 	return {$: 'GotBytes', a: a};
+};
+var $elm$core$List$head = function (list) {
+	if (list.b) {
+		var x = list.a;
+		var xs = list.b;
+		return $elm$core$Maybe$Just(x);
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
 };
 var $avh4$elm_color$Color$toRgba = function (_v0) {
 	var r = _v0.a;
@@ -5587,15 +5596,6 @@ var $author$project$Ascii$colorsToLuminosity = function (colors) {
 			return A2($elm$core$List$map, $author$project$Ascii$luminosity, xs);
 		},
 		colors);
-};
-var $elm$core$List$head = function (list) {
-	if (list.b) {
-		var x = list.a;
-		var xs = list.b;
-		return $elm$core$Maybe$Just(x);
-	} else {
-		return $elm$core$Maybe$Nothing;
-	}
 };
 var $elm$bytes$Bytes$Encode$getWidth = function (builder) {
 	switch (builder.$) {
@@ -9950,6 +9950,49 @@ var $author$project$Ascii$imageToColors = function (file) {
 		}
 	}
 };
+var $elm$core$Basics$round = _Basics_round;
+var $author$project$Ascii$asciify = F2(
+	function (lum, ascii) {
+		var ch = A2(
+			$elm$core$Array$get,
+			$elm$core$Basics$round(
+				lum * ($elm$core$Array$length(ascii) - 1)),
+			ascii);
+		if (ch.$ === 'Nothing') {
+			return _Utils_chr('ø');
+		} else {
+			var c = ch.a;
+			return c;
+		}
+	});
+var $author$project$Ascii$blocks = $elm$core$Array$fromList(
+	_List_fromArray(
+		[
+			_Utils_chr('░'),
+			_Utils_chr('▒'),
+			_Utils_chr('▓'),
+			_Utils_chr('█')
+		]));
+var $elm$core$String$fromList = _String_fromList;
+var $author$project$Ascii$luminosityToStrings = function (lumins) {
+	return A2(
+		$elm$core$List$map,
+		function (xs) {
+			return $elm$core$String$fromList(
+				A2(
+					$elm$core$List$map,
+					function (x) {
+						return A2($author$project$Ascii$asciify, x, $author$project$Ascii$blocks);
+					},
+					xs));
+		},
+		lumins);
+};
+var $author$project$Ascii$imageToAscii = function (img) {
+	return $author$project$Ascii$luminosityToStrings(
+		$author$project$Ascii$colorsToLuminosity(
+			$author$project$Ascii$imageToColors(img)));
+};
 var $elm$time$Time$Posix = function (a) {
 	return {$: 'Posix', a: a};
 };
@@ -9970,16 +10013,12 @@ var $author$project$Ascii$update = F2(
 						A2($elm$core$List$map, $elm$file$File$toBytes, files))));
 		} else {
 			var bytes = msg.a;
-			var _v1 = A2(
-				$elm$core$Debug$log,
-				'raw',
-				$author$project$Ascii$colorsToLuminosity(
-					$author$project$Ascii$imageToColors(
-						$elm$core$List$head(bytes))));
+			var ascii = $author$project$Ascii$imageToAscii(
+				$elm$core$List$head(bytes));
 			return _Utils_Tuple2(
 				_Utils_update(
 					model,
-					{fileBytes: bytes}),
+					{convertedASCII: ascii, fileBytes: bytes}),
 				$elm$core$Platform$Cmd$none);
 		}
 	});
@@ -9987,6 +10026,27 @@ var $author$project$Ascii$GotFiles = function (a) {
 	return {$: 'GotFiles', a: a};
 };
 var $elm$html$Html$div = _VirtualDom_node('div');
+var $elm$virtual_dom$VirtualDom$style = _VirtualDom_style;
+var $elm$html$Html$Attributes$style = $elm$virtual_dom$VirtualDom$style;
+var $elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
+var $elm$html$Html$text = $elm$virtual_dom$VirtualDom$text;
+var $author$project$Ascii$asciiToHtml = function (strs) {
+	return A2(
+		$elm$core$List$map,
+		function (str) {
+			return A2(
+				$elm$html$Html$div,
+				_List_fromArray(
+					[
+						A2($elm$html$Html$Attributes$style, 'font-family', 'monospace')
+					]),
+				_List_fromArray(
+					[
+						$elm$html$Html$text(str)
+					]));
+		},
+		strs);
+};
 var $elm$json$Json$Decode$field = _Json_decodeField;
 var $elm$json$Json$Decode$at = F2(
 	function (fields, decoder) {
@@ -10033,21 +10093,23 @@ var $author$project$Ascii$view = function (model) {
 	return A2(
 		$elm$html$Html$div,
 		_List_Nil,
-		_List_fromArray(
-			[
-				A2(
-				$elm$html$Html$input,
-				_List_fromArray(
-					[
-						$elm$html$Html$Attributes$type_('file'),
-						$elm$html$Html$Attributes$multiple(true),
-						A2(
-						$elm$html$Html$Events$on,
-						'change',
-						A2($elm$json$Json$Decode$map, $author$project$Ascii$GotFiles, $author$project$Ascii$filesDecoder))
-					]),
-				_List_Nil)
-			]));
+		_Utils_ap(
+			_List_fromArray(
+				[
+					A2(
+					$elm$html$Html$input,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$type_('file'),
+							$elm$html$Html$Attributes$multiple(true),
+							A2(
+							$elm$html$Html$Events$on,
+							'change',
+							A2($elm$json$Json$Decode$map, $author$project$Ascii$GotFiles, $author$project$Ascii$filesDecoder))
+						]),
+					_List_Nil)
+				]),
+			$author$project$Ascii$asciiToHtml(model.convertedASCII)));
 };
 var $author$project$Ascii$main = $elm$browser$Browser$element(
 	{init: $author$project$Ascii$init, subscriptions: $author$project$Ascii$subscriptions, update: $author$project$Ascii$update, view: $author$project$Ascii$view});
