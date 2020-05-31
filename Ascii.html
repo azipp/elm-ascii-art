@@ -5551,11 +5551,12 @@ var $elm$core$Task$perform = F2(
 				A2($elm$core$Task$map, toMessage, task)));
 	});
 var $elm$browser$Browser$element = _Browser_element;
-var $author$project$Ascii$initModel = {convertedASCII: _List_Nil, file: _List_Nil, fileBytes: _List_Nil};
 var $elm$core$Platform$Cmd$batch = _Platform_batch;
 var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
 var $author$project$Ascii$init = function (_v0) {
-	return _Utils_Tuple2($author$project$Ascii$initModel, $elm$core$Platform$Cmd$none);
+	return _Utils_Tuple2(
+		{convertedASCII: _List_Nil, file: _List_Nil, fileBytes: _List_Nil, height: 500, width: 500},
+		$elm$core$Platform$Cmd$none);
 };
 var $elm$core$Platform$Sub$batch = _Platform_batch;
 var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
@@ -5588,14 +5589,17 @@ var $author$project$Ascii$luminosity = function (col) {
 	var blue = _v0.blue;
 	return ((0.2126 * red) + (0.7152 * green)) + (0.0722 * blue);
 };
-var $author$project$Ascii$colorsToLuminosity = function (colors) {
-	return A2(
-		$elm$core$List$map,
-		function (xs) {
-			return A2($elm$core$List$map, $author$project$Ascii$luminosity, xs);
-		},
-		colors);
-};
+var $elm$core$Basics$modBy = _Basics_modBy;
+var $author$project$Ascii$colorsToLuminosity = F3(
+	function (colors, height, width) {
+		return A2(
+			$elm$core$List$indexedMap,
+			F2(
+				function (i, xs) {
+					return (!A2($elm$core$Basics$modBy, 2, i)) ? A2($elm$core$List$map, $author$project$Ascii$luminosity, xs) : _List_Nil;
+				}),
+			colors);
+	});
 var $elm$bytes$Bytes$Encode$getWidth = function (builder) {
 	switch (builder.$) {
 		case 'I8':
@@ -9286,7 +9290,6 @@ var $folkertdev$elm_flate$Inflate$Internal$inflate = function (buffer) {
 					A2($elm$core$List$map, $elm$bytes$Bytes$Encode$bytes, values))));
 	}
 };
-var $elm$core$Basics$modBy = _Basics_modBy;
 var $folkertdev$elm_flate$Inflate$ZLib$Slices = F4(
 	function (cmf, flg, buffer, a32) {
 		return {a32: a32, buffer: buffer, cmf: cmf, flg: flg};
@@ -9962,6 +9965,7 @@ var $author$project$Ascii$asciify = F2(
 var $author$project$Ascii$blocks = $elm$core$Array$fromList(
 	_List_fromArray(
 		[
+			_Utils_chr(' '),
 			_Utils_chr('░'),
 			_Utils_chr('▒'),
 			_Utils_chr('▓'),
@@ -9982,11 +9986,15 @@ var $author$project$Ascii$luminosityToStrings = function (lumins) {
 		},
 		lumins);
 };
-var $author$project$Ascii$imageToAscii = function (img) {
-	return $author$project$Ascii$luminosityToStrings(
-		$author$project$Ascii$colorsToLuminosity(
-			$author$project$Ascii$imageToColors(img)));
-};
+var $author$project$Ascii$imageToAscii = F2(
+	function (img, model) {
+		return $author$project$Ascii$luminosityToStrings(
+			A3(
+				$author$project$Ascii$colorsToLuminosity,
+				$author$project$Ascii$imageToColors(img),
+				model.height,
+				model.width));
+	});
 var $elm$time$Time$Posix = function (a) {
 	return {$: 'Posix', a: a};
 };
@@ -10007,8 +10015,10 @@ var $author$project$Ascii$update = F2(
 						A2($elm$core$List$map, $elm$file$File$toBytes, files))));
 		} else {
 			var bytes = msg.a;
-			var ascii = $author$project$Ascii$imageToAscii(
-				$elm$core$List$head(bytes));
+			var ascii = A2(
+				$author$project$Ascii$imageToAscii,
+				$elm$core$List$head(bytes),
+				model);
 			return _Utils_Tuple2(
 				_Utils_update(
 					model,
@@ -10032,7 +10042,8 @@ var $author$project$Ascii$asciiToHtml = function (strs) {
 				$elm$html$Html$div,
 				_List_fromArray(
 					[
-						A2($elm$html$Html$Attributes$style, 'font-family', 'monospace')
+						A2($elm$html$Html$Attributes$style, 'font-family', 'monospace'),
+						A2($elm$html$Html$Attributes$style, 'font-size', '2px')
 					]),
 				_List_fromArray(
 					[

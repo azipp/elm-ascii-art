@@ -2,6 +2,8 @@ module Ascii exposing (..)
 
 import Array exposing (..)
 import Browser
+import Browser.Dom exposing (..)
+import Browser.Events
 import Bytes exposing (Bytes)
 import Color exposing (..)
 import File exposing (File)
@@ -20,7 +22,7 @@ import Task
 
 blocks : Array Char
 blocks =
-    Array.fromList [ '░', '▒', '▓', '█' ]
+    Array.fromList [ ' ', '░', '▒', '▓', '█' ]
 
 
 ascii1 : Array Char
@@ -96,6 +98,10 @@ type alias Model =
     { file : List File -- list or singular?
     , fileBytes : List Bytes
     , convertedASCII : List String -- List String?
+
+    -- , window : Browser.Dom.Viewport
+    , height : Int
+    , width : Int
     }
 
 
@@ -105,15 +111,14 @@ type alias Flags =
 
 init : Flags -> ( Model, Cmd Msg )
 init () =
-    ( initModel, Cmd.none )
-
-
-initModel : Model
-initModel =
-    { file = []
-    , fileBytes = []
-    , convertedASCII = []
-    }
+    ( { file = []
+      , fileBytes = []
+      , convertedASCII = []
+      , height = 500
+      , width = 500
+      }
+    , Cmd.none
+    )
 
 
 
@@ -123,6 +128,10 @@ initModel =
 type Msg
     = GotFiles (List File)
     | GotBytes (List Bytes)
+
+
+
+-- | GotNewSize Int Int
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -138,7 +147,7 @@ update msg model =
         GotBytes bytes ->
             let
                 ascii =
-                    imageToAscii (List.head bytes)
+                    imageToAscii (List.head bytes) model
             in
             ( { model | fileBytes = bytes, convertedASCII = ascii }
             , Cmd.none
@@ -151,6 +160,7 @@ update msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
+    -- Browser.Events.onResize (\w h -> GotNewSize w h)
     Sub.none
 
 
@@ -219,14 +229,29 @@ luminosity col =
     0.2126 * red + 0.7152 * green + 0.0722 * blue
 
 
-colorsToLuminosity : List (List Color) -> List (List Float)
-colorsToLuminosity colors =
+colorsToLuminosity :
+    List (List Color)
+    -> Int
+    -> Int
+    -> List (List Float)
+colorsToLuminosity colors height width =
     -- convert 2d list of colors to 2d list of luminosity floats
     -- implement scale here to fit ascii in browser window
-    List.map (\xs -> List.map luminosity xs) colors
+    List.indexedMap
+        (\i xs ->
+            if modBy 2 i == 0 then
+                List.map luminosity xs
+
+            else
+                []
+        )
+        colors
 
 
 
+-- getEveryNthElem : List a -> List a
+-- getEveryNthElem xs =
+-- -- get every nth val of a list
 -- use indexed map to skip rows and columns by adding []
 -- get skip scale from img aspect ratio and height, width of window
 -- use 3d list to keep associated floats together
@@ -265,10 +290,15 @@ luminosityToStrings lumins =
         lumins
 
 
-imageToAscii : Maybe Bytes -> List String
-imageToAscii img =
+imageToAscii : Maybe Bytes -> Model -> List String
+imageToAscii img model =
     -- link all the necessary functions together
-    luminosityToStrings (colorsToLuminosity (imageToColors img))
+    luminosityToStrings
+        (colorsToLuminosity
+            (imageToColors img)
+            model.height
+            model.width
+        )
 
 
 asciiToHtml : List String -> List (Html msg)
@@ -277,7 +307,7 @@ asciiToHtml strs =
     List.map
         (\str ->
             div
-                [ style "font-family" "monospace" ]
+                [ style "font-family" "monospace", style "font-size" "2px" ]
                 [ text str ]
         )
         strs
