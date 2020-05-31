@@ -98,8 +98,6 @@ type alias Model =
     { file : List File -- list or singular?
     , fileBytes : List Bytes
     , convertedASCII : List String -- List String?
-
-    -- , window : Browser.Dom.Viewport
     , height : Int
     , width : Int
     }
@@ -130,10 +128,6 @@ type Msg
     | GotBytes (List Bytes)
 
 
-
--- | GotNewSize Int Int
-
-
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
@@ -160,7 +154,6 @@ update msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    -- Browser.Events.onResize (\w h -> GotNewSize w h)
     Sub.none
 
 
@@ -170,7 +163,11 @@ subscriptions model =
 
 view : Model -> Html Msg
 view model =
-    div []
+    div
+        [ style "display" "flex"
+        , style "flex-direction" "column"
+        , style "align-items" "center"
+        ]
         ([ input
             [ Attr.type_ "file"
             , Attr.multiple True
@@ -249,13 +246,6 @@ colorsToLuminosity colors height width =
 
 
 
--- getEveryNthElem : List a -> List a
--- getEveryNthElem xs =
--- -- get every nth val of a list
--- use indexed map to skip rows and columns by adding []
--- get skip scale from img aspect ratio and height, width of window
--- use 3d list to keep associated floats together
--- until average the luminosities of inner lists?
 -- extra: css to set font + size
 
 
@@ -307,7 +297,9 @@ asciiToHtml strs =
     List.map
         (\str ->
             div
-                [ style "font-family" "monospace", style "font-size" "2px" ]
+                [ style "font-family" "monospace"
+                , style "font-size" "2px"
+                ]
                 [ text str ]
         )
         strs
