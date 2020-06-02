@@ -5555,7 +5555,7 @@ var $elm$core$Platform$Cmd$batch = _Platform_batch;
 var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
 var $author$project$Ascii$init = function (_v0) {
 	return _Utils_Tuple2(
-		{convertedASCII: _List_Nil, file: _List_Nil, fileBytes: _List_Nil, height: 500, width: 500},
+		{convertedASCII: _List_Nil, file: _List_Nil, fileBytes: _List_Nil},
 		$elm$core$Platform$Cmd$none);
 };
 var $elm$core$Platform$Sub$batch = _Platform_batch;
@@ -5590,16 +5590,15 @@ var $author$project$Ascii$luminosity = function (col) {
 	return ((0.2126 * red) + (0.7152 * green)) + (0.0722 * blue);
 };
 var $elm$core$Basics$modBy = _Basics_modBy;
-var $author$project$Ascii$colorsToLuminosity = F3(
-	function (colors, height, width) {
-		return A2(
-			$elm$core$List$indexedMap,
-			F2(
-				function (i, xs) {
-					return (!A2($elm$core$Basics$modBy, 2, i)) ? A2($elm$core$List$map, $author$project$Ascii$luminosity, xs) : _List_Nil;
-				}),
-			colors);
-	});
+var $author$project$Ascii$colorsToLuminosity = function (colors) {
+	return A2(
+		$elm$core$List$indexedMap,
+		F2(
+			function (i, xs) {
+				return (!A2($elm$core$Basics$modBy, 2, i * 5)) ? A2($elm$core$List$map, $author$project$Ascii$luminosity, xs) : _List_Nil;
+			}),
+		colors);
+};
 var $elm$bytes$Bytes$Encode$getWidth = function (builder) {
 	switch (builder.$) {
 		case 'I8':
@@ -9965,11 +9964,10 @@ var $author$project$Ascii$asciify = F2(
 var $author$project$Ascii$blocks = $elm$core$Array$fromList(
 	_List_fromArray(
 		[
-			_Utils_chr(' '),
-			_Utils_chr('░'),
-			_Utils_chr('▒'),
+			_Utils_chr('█'),
 			_Utils_chr('▓'),
-			_Utils_chr('█')
+			_Utils_chr('▒'),
+			_Utils_chr('░')
 		]));
 var $elm$core$String$fromList = _String_fromList;
 var $author$project$Ascii$luminosityToStrings = function (lumins) {
@@ -9986,15 +9984,11 @@ var $author$project$Ascii$luminosityToStrings = function (lumins) {
 		},
 		lumins);
 };
-var $author$project$Ascii$imageToAscii = F2(
-	function (img, model) {
-		return $author$project$Ascii$luminosityToStrings(
-			A3(
-				$author$project$Ascii$colorsToLuminosity,
-				$author$project$Ascii$imageToColors(img),
-				model.height,
-				model.width));
-	});
+var $author$project$Ascii$imageToAscii = function (img) {
+	return $author$project$Ascii$luminosityToStrings(
+		$author$project$Ascii$colorsToLuminosity(
+			$author$project$Ascii$imageToColors(img)));
+};
 var $elm$time$Time$Posix = function (a) {
 	return {$: 'Posix', a: a};
 };
@@ -10015,10 +10009,8 @@ var $author$project$Ascii$update = F2(
 						A2($elm$core$List$map, $elm$file$File$toBytes, files))));
 		} else {
 			var bytes = msg.a;
-			var ascii = A2(
-				$author$project$Ascii$imageToAscii,
-				$elm$core$List$head(bytes),
-				model);
+			var ascii = $author$project$Ascii$imageToAscii(
+				$elm$core$List$head(bytes));
 			return _Utils_Tuple2(
 				_Utils_update(
 					model,
@@ -10029,29 +10021,43 @@ var $author$project$Ascii$update = F2(
 var $author$project$Ascii$GotFiles = function (a) {
 	return {$: 'GotFiles', a: a};
 };
+var $elm$core$String$append = _String_append;
 var $elm$html$Html$div = _VirtualDom_node('div');
+var $elm$core$String$replace = F3(
+	function (before, after, string) {
+		return A2(
+			$elm$core$String$join,
+			after,
+			A2($elm$core$String$split, before, string));
+	});
 var $elm$virtual_dom$VirtualDom$style = _VirtualDom_style;
 var $elm$html$Html$Attributes$style = $elm$virtual_dom$VirtualDom$style;
 var $elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
 var $elm$html$Html$text = $elm$virtual_dom$VirtualDom$text;
-var $author$project$Ascii$asciiToHtml = function (strs) {
-	return A2(
-		$elm$core$List$map,
-		function (str) {
-			return A2(
-				$elm$html$Html$div,
-				_List_fromArray(
-					[
-						A2($elm$html$Html$Attributes$style, 'font-family', 'monospace'),
-						A2($elm$html$Html$Attributes$style, 'font-size', '2px')
-					]),
-				_List_fromArray(
-					[
-						$elm$html$Html$text(str)
-					]));
-		},
-		strs);
-};
+var $author$project$Ascii$asciiToHtml = F2(
+	function (strs, size) {
+		var fontSize = A2(
+			$elm$core$String$append,
+			$elm$core$String$fromInt(size),
+			'px');
+		return A2(
+			$elm$core$List$map,
+			function (str) {
+				return A2(
+					$elm$html$Html$div,
+					_List_fromArray(
+						[
+							A2($elm$html$Html$Attributes$style, 'font-family', 'monospace'),
+							A2($elm$html$Html$Attributes$style, 'font-size', fontSize)
+						]),
+					_List_fromArray(
+						[
+							$elm$html$Html$text(
+							A3($elm$core$String$replace, ' ', '_', str))
+						]));
+			},
+			strs);
+	});
 var $elm$json$Json$Decode$field = _Json_decodeField;
 var $elm$json$Json$Decode$at = F2(
 	function (fields, decoder) {
@@ -10064,6 +10070,8 @@ var $author$project$Ascii$filesDecoder = A2(
 	_List_fromArray(
 		['target', 'files']),
 	$elm$json$Json$Decode$list($elm$file$File$decoder));
+var $author$project$Ascii$header = _List_fromArray(
+	[' ▄▄·        ▐ ▄  ▌ ▐·▄▄▄ .▄▄▄  ▄▄▄▄▄    ▪  • ▌ ▄ ·.  ▄▄▄·  ▄▄ • ▄▄▄ .    ▄▄▄▄▄           ▄▄▄· .▄▄ ·  ▄▄· ▪  ▪  ', '▐█ ▌▪▪     •█▌▐█▪█·█▌▀▄.▀·▀▄ █·•██      ██ ·██ ▐███▪▐█ ▀█ ▐█ ▀ ▪▀▄.▀·    •██  ▪         ▐█ ▀█ ▐█ ▀. ▐█ ▌▪██ ██ ', '██ ▄▄ ▄█▀▄ ▐█▐▐▌▐█▐█•▐▀▀▪▄▐▀▀▄  ▐█.▪    ▐█·▐█ ▌▐▌▐█·▄█▀▀█ ▄█ ▀█▄▐▀▀▪▄     ▐█.▪ ▄█▀▄     ▄█▀▀█ ▄▀▀▀█▄██ ▄▄▐█·▐█·', '▐███▌▐█▌.▐▌██▐█▌ ███ ▐█▄▄▌▐█•█▌ ▐█▌·    ▐█▌██ ██▌▐█▌▐█ ▪▐▌▐█▄▪▐█▐█▄▄▌     ▐█▌·▐█▌.▐▌    ▐█ ▪▐▌▐█▄▪▐█▐███▌▐█▌▐█▌', '·▀▀▀  ▀█▄▀▪▀▀ █▪. ▀   ▀▀▀ .▀  ▀ ▀▀▀     ▀▀▀▀▀  █▪▀▀▀ ▀  ▀ ·▀▀▀▀  ▀▀▀      ▀▀▀  ▀█▄▀▪     ▀  ▀  ▀▀▀▀ ·▀▀▀ ▀▀▀▀▀▀']);
 var $elm$html$Html$input = _VirtualDom_node('input');
 var $elm$json$Json$Encode$bool = _Json_wrap;
 var $elm$html$Html$Attributes$boolProperty = F2(
@@ -10104,22 +10112,24 @@ var $author$project$Ascii$view = function (model) {
 				A2($elm$html$Html$Attributes$style, 'align-items', 'center')
 			]),
 		_Utils_ap(
-			_List_fromArray(
-				[
-					A2(
-					$elm$html$Html$input,
-					_List_fromArray(
-						[
-							$elm$html$Html$Attributes$type_('file'),
-							$elm$html$Html$Attributes$multiple(true),
-							A2(
-							$elm$html$Html$Events$on,
-							'change',
-							A2($elm$json$Json$Decode$map, $author$project$Ascii$GotFiles, $author$project$Ascii$filesDecoder))
-						]),
-					_List_Nil)
-				]),
-			$author$project$Ascii$asciiToHtml(model.convertedASCII)));
+			A2($author$project$Ascii$asciiToHtml, $author$project$Ascii$header, 10),
+			_Utils_ap(
+				_List_fromArray(
+					[
+						A2(
+						$elm$html$Html$input,
+						_List_fromArray(
+							[
+								$elm$html$Html$Attributes$type_('file'),
+								$elm$html$Html$Attributes$multiple(true),
+								A2(
+								$elm$html$Html$Events$on,
+								'change',
+								A2($elm$json$Json$Decode$map, $author$project$Ascii$GotFiles, $author$project$Ascii$filesDecoder))
+							]),
+						_List_Nil)
+					]),
+				A2($author$project$Ascii$asciiToHtml, model.convertedASCII, 2))));
 };
 var $author$project$Ascii$main = $elm$browser$Browser$element(
 	{init: $author$project$Ascii$init, subscriptions: $author$project$Ascii$subscriptions, update: $author$project$Ascii$update, view: $author$project$Ascii$view});

@@ -20,61 +20,68 @@ import Task
 ------ CONSTANTS ------
 
 
-blocks : Array Char
-blocks =
-    Array.fromList [ ' ', '░', '▒', '▓', '█' ]
-
-
-ascii1 : Array Char
-ascii1 =
-    Array.fromList
-        (String.toList
-            " .'`,^:\";~-_+<>i!lI?/\\|()1{}[]rcvunxzjftLCJUYXZO0Qoahkbdpqwm*WMB8&%$#@"
-        )
-
-
-ascii2 : Array Char
-ascii2 =
-    Array.fromList
-        (List.reverse
-            (String.toList
-                "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'. "
-            )
-        )
-
-
-ascii3 : Array Char
-ascii3 =
-    Array.fromList
-        (String.toList
-            " .:-=+*#%@"
-        )
+header : List String
+header =
+    [ " ▄▄·        ▐ ▄  ▌ ▐·▄▄▄ .▄▄▄  ▄▄▄▄▄    ▪  • ▌ ▄ ·.  ▄▄▄·  ▄▄ • ▄▄▄ .    ▄▄▄▄▄           ▄▄▄· .▄▄ ·  ▄▄· ▪  ▪  "
+    , "▐█ ▌▪▪     •█▌▐█▪█·█▌▀▄.▀·▀▄ █·•██      ██ ·██ ▐███▪▐█ ▀█ ▐█ ▀ ▪▀▄.▀·    •██  ▪         ▐█ ▀█ ▐█ ▀. ▐█ ▌▪██ ██ "
+    , "██ ▄▄ ▄█▀▄ ▐█▐▐▌▐█▐█•▐▀▀▪▄▐▀▀▄  ▐█.▪    ▐█·▐█ ▌▐▌▐█·▄█▀▀█ ▄█ ▀█▄▐▀▀▪▄     ▐█.▪ ▄█▀▄     ▄█▀▀█ ▄▀▀▀█▄██ ▄▄▐█·▐█·"
+    , "▐███▌▐█▌.▐▌██▐█▌ ███ ▐█▄▄▌▐█•█▌ ▐█▌·    ▐█▌██ ██▌▐█▌▐█ ▪▐▌▐█▄▪▐█▐█▄▄▌     ▐█▌·▐█▌.▐▌    ▐█ ▪▐▌▐█▄▪▐█▐███▌▐█▌▐█▌"
+    , "·▀▀▀  ▀█▄▀▪▀▀ █▪. ▀   ▀▀▀ .▀  ▀ ▀▀▀     ▀▀▀▀▀  █▪▀▀▀ ▀  ▀ ·▀▀▀▀  ▀▀▀      ▀▀▀  ▀█▄▀▪     ▀  ▀  ▀▀▀▀ ·▀▀▀ ▀▀▀▀▀▀"
+    ]
 
 
 
 -- blocks : Array Char
 -- blocks =
---     Array.fromList [ '█', '▓', '▒', '░', ' ' ]
+--     Array.fromList [ '░', '▒', '▓', '█' ]
+-- ascii1 : Array Char
+-- ascii1 =
+--     Array.fromList
+--         (String.toList
+--             ".'`,^:\";~-_+<>i!lI?/\\|()1{}[]rcvunxzjftLCJUYXZO0Qoahkbdpqwm*WMB8&%$#@"
+--         )
+-- ascii2 : Array Char
+-- ascii2 =
+--     Array.fromList
+--         (List.reverse
+--             (String.toList
+--                 "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'."
+--             )
+--         )
+-- ascii3 : Array Char
+-- ascii3 =
+--     Array.fromList
+--         (String.toList
+--             ".:-=+*#%@"
+--         )
+
+
+blocks : Array Char
+blocks =
+    Array.fromList [ '█', '▓', '▒', '░' ]
+
+
+
 -- ascii1 : Array Char
 -- ascii1 =
 --     Array.fromList
 --         (List.reverse
 --             (String.toList
---                 " .'`,^:\";~-_+<>i!lI?/\\|()1{}[]rcvunxzjftLCJUYXZO0Qoahkbdpqwm*WMB8&%$#@"
+--                 ".'`,^:\";~-_+<>i!lI?/\\|()1{}[]rcvunxzjftLCJUYXZO0Qoahkbdpqwm*WMB8&%$#@"
 --             )
 --         )
 -- ascii2 : Array Char
 -- ascii2 =
 --     Array.fromList
 --         (String.toList
---             "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'. "
+--             "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'."
 --         )
 -- ascii3 : Array Char
 -- ascii3 =
 --     Array.fromList
 --         (List.reverse
 --             (String.toList
---                 " .:-=+*#%@"
+--                 ".:-=+*#%@"
 --             )
 --         )
 ------ MAIN ------
@@ -98,8 +105,6 @@ type alias Model =
     { file : List File -- list or singular?
     , fileBytes : List Bytes
     , convertedASCII : List String -- List String?
-    , height : Int
-    , width : Int
     }
 
 
@@ -112,8 +117,6 @@ init () =
     ( { file = []
       , fileBytes = []
       , convertedASCII = []
-      , height = 500
-      , width = 500
       }
     , Cmd.none
     )
@@ -141,7 +144,7 @@ update msg model =
         GotBytes bytes ->
             let
                 ascii =
-                    imageToAscii (List.head bytes) model
+                    imageToAscii (List.head bytes)
             in
             ( { model | fileBytes = bytes, convertedASCII = ascii }
             , Cmd.none
@@ -168,14 +171,15 @@ view model =
         , style "flex-direction" "column"
         , style "align-items" "center"
         ]
-        ([ input
-            [ Attr.type_ "file"
-            , Attr.multiple True
-            , on "change" (Decode.map GotFiles filesDecoder)
-            ]
-            []
-         ]
-            ++ asciiToHtml model.convertedASCII
+        (asciiToHtml header 10
+            ++ [ input
+                    [ Attr.type_ "file"
+                    , Attr.multiple True
+                    , on "change" (Decode.map GotFiles filesDecoder)
+                    ]
+                    []
+               ]
+            ++ asciiToHtml model.convertedASCII 2
         )
 
 
@@ -226,27 +230,19 @@ luminosity col =
     0.2126 * red + 0.7152 * green + 0.0722 * blue
 
 
-colorsToLuminosity :
-    List (List Color)
-    -> Int
-    -> Int
-    -> List (List Float)
-colorsToLuminosity colors height width =
+colorsToLuminosity : List (List Color) -> List (List Float)
+colorsToLuminosity colors =
     -- convert 2d list of colors to 2d list of luminosity floats
     -- implement scale here to fit ascii in browser window
     List.indexedMap
         (\i xs ->
-            if modBy 2 i == 0 then
+            if modBy 2 (i * 5) == 0 then
                 List.map luminosity xs
 
             else
                 []
         )
         colors
-
-
-
--- extra: css to set font + size
 
 
 asciify : Float -> Array Char -> Char
@@ -280,26 +276,28 @@ luminosityToStrings lumins =
         lumins
 
 
-imageToAscii : Maybe Bytes -> Model -> List String
-imageToAscii img model =
+imageToAscii : Maybe Bytes -> List String
+imageToAscii img =
     -- link all the necessary functions together
     luminosityToStrings
         (colorsToLuminosity
             (imageToColors img)
-            model.height
-            model.width
         )
 
 
-asciiToHtml : List String -> List (Html msg)
-asciiToHtml strs =
+asciiToHtml : List String -> Int -> List (Html msg)
+asciiToHtml strs size =
     -- list of ascii strings to list of formatted divs
+    let
+        fontSize =
+            String.append (String.fromInt size) "px"
+    in
     List.map
         (\str ->
             div
                 [ style "font-family" "monospace"
-                , style "font-size" "2px"
+                , style "font-size" fontSize
                 ]
-                [ text str ]
+                [ text (String.replace " " "_" str) ]
         )
         strs
